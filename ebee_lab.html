@@ -1,0 +1,682 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>eBee Lab — swarm optimiser in the browser</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --ink:#14120F;
+  --ink-2:#1D1A15;
+  --line:#332E25;
+  --honey:#E8A317;
+  --pollen:#F2C14E;
+  --sage:#8C9C79;
+  --cream:#EDE6D8;
+  --dim:#8E8676;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--ink);color:var(--cream);
+  font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:15px;line-height:1.5}
+h1,h2,h3{font-family:"Fraunces",Georgia,serif;font-weight:300;margin:0}
+code,.mono,input,select{font-family:"IBM Plex Mono",ui-monospace,monospace}
+
+.wrap{max-width:1180px;margin:0 auto;padding:28px 20px 64px}
+
+/* ---- masthead: the hive comb is the signature motif ---- */
+header{display:flex;align-items:flex-end;justify-content:space-between;
+  gap:24px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:18px}
+h1{font-size:clamp(34px,6vw,60px);letter-spacing:-.02em}
+h1 em{font-style:normal;color:var(--honey)}
+.tagline{color:var(--dim);max-width:44ch;font-size:14px}
+
+.grid{display:grid;grid-template-columns:300px 1fr;gap:22px;margin-top:22px}
+@media (max-width:880px){.grid{grid-template-columns:1fr}}
+
+.panel{background:var(--ink-2);border:1px solid var(--line);border-radius:3px;padding:16px}
+.panel h2{font-size:13px;letter-spacing:.18em;text-transform:uppercase;
+  font-family:"IBM Plex Sans",sans-serif;font-weight:600;color:var(--dim);margin-bottom:14px}
+
+label{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--dim);margin:12px 0 4px}
+input,select{width:100%;background:#0D0B09;border:1px solid var(--line);color:var(--cream);
+  padding:8px 9px;border-radius:2px;font-size:13px}
+input:focus,select:focus{outline:2px solid var(--honey);outline-offset:1px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+.buttons{display:flex;gap:8px;margin-top:18px}
+button{flex:1;border:1px solid var(--honey);background:var(--honey);color:#14120F;
+  font-weight:600;font-size:13px;padding:10px;border-radius:2px;cursor:pointer;
+  letter-spacing:.04em;transition:background .15s,color .15s}
+button.ghost{background:transparent;color:var(--honey)}
+button:hover{background:var(--pollen)}
+button.ghost:hover{background:#241f16;color:var(--pollen)}
+button:disabled{opacity:.35;cursor:not-allowed}
+
+/* ---- readouts ---- */
+.readout{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);
+  border:1px solid var(--line);border-radius:3px;overflow:hidden}
+.cell{background:var(--ink-2);padding:12px 14px}
+.cell .k{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+.cell .v{font-family:"IBM Plex Mono",monospace;font-size:17px;color:var(--pollen);
+  margin-top:4px;word-break:break-all}
+
+canvas{width:100%;display:block;border-radius:2px;background:#0D0B09}
+.plots{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:22px}
+@media (max-width:880px){.plots{grid-template-columns:1fr}}
+
+.caption{color:var(--dim);font-size:12px;margin-top:8px}
+.best{margin-top:22px}
+.best pre{background:#0D0B09;border:1px solid var(--line);border-radius:2px;padding:12px;
+  overflow:auto;font-size:12px;color:var(--sage);margin:0;max-height:150px}
+
+.phase{display:flex;gap:6px;margin-top:14px;flex-wrap:wrap}
+.tag{font-size:10px;letter-spacing:.14em;text-transform:uppercase;border:1px solid var(--line);
+  padding:4px 8px;border-radius:99px;color:var(--dim)}
+.tag.on{border-color:var(--honey);color:var(--honey)}
+
+footer{margin-top:40px;border-top:1px solid var(--line);padding-top:16px;
+  color:var(--dim);font-size:12px}
+</style>
+
+<div class="wrap">
+<header>
+  <div>
+    <h1>eBee <em>Lab</em></h1>
+    <p class="tagline">A browser port of the eBee swarm optimiser — employed, onlooker and scout
+      phases with Lévy-flight step sizes. Pick a benchmark, set the meadow size, and watch the
+      nectar search run.</p>
+  </div>
+</header>
+
+<div class="grid">
+  <!-- ============ CONTROLS ============ -->
+  <div class="panel">
+    <h2>Run setup</h2>
+
+    <label for="fn">Objective function</label>
+    <select id="fn">
+      <option value="rosenbrock">Rosenbrock</option>
+      <option value="sphere">Sphere</option>
+      <option value="rastrigin">Rastrigin</option>
+      <option value="ackley">Ackley</option>
+      <option value="griewank">Griewank</option>
+      <option value="schwefel">Schwefel 2.26</option>
+    </select>
+
+    <div class="row">
+      <div><label for="N">Colony size N</label><input id="N" type="number" value="30" min="4"></div>
+      <div><label for="D">Dimension D</label><input id="D" type="number" value="30" min="2"></div>
+    </div>
+
+    <div class="row">
+      <div><label for="lb">Lower bound</label><input id="lb" type="number" value="-30"></div>
+      <div><label for="ub">Upper bound</label><input id="ub" type="number" value="30"></div>
+    </div>
+
+    <div class="row">
+      <div><label for="cyc">Max cycles</label><input id="cyc" type="number" value="5000" min="1"></div>
+      <div><label for="spd">Cycles per frame</label><input id="spd" type="number" value="25" min="1"></div>
+    </div>
+
+    <div class="buttons">
+      <button id="run">Start search</button>
+      <button id="stop" class="ghost" disabled>Pause</button>
+    </div>
+    <div class="buttons" style="margin-top:8px">
+      <button id="reset" class="ghost">Reset</button>
+    </div>
+
+    <div class="phase">
+      <span class="tag" id="t-emp">Employed</span>
+      <span class="tag" id="t-onl">Onlooker</span>
+      <span class="tag" id="t-sct">Scout</span>
+    </div>
+    <p class="caption">The scout phase fires on roughly one cycle in ten; wildflower anchors are
+      redrawn every 100 cycles to keep search directions diverse.</p>
+  </div>
+
+  <!-- ============ OUTPUT ============ -->
+  <div>
+    <div class="readout">
+      <div class="cell"><div class="k">Cycle</div><div class="v" id="o-iter">0</div></div>
+      <div class="cell"><div class="k">Best value</div><div class="v" id="o-val">—</div></div>
+      <div class="cell"><div class="k">Evaluations</div><div class="v" id="o-fe">0</div></div>
+    </div>
+
+    <div class="plots">
+      <div>
+        <canvas id="conv" width="760" height="420"></canvas>
+        <p class="caption">Convergence — best value so far, log scale where the values allow it.</p>
+      </div>
+      <div>
+        <canvas id="field" width="760" height="420"></canvas>
+        <p class="caption">Meadow, projected onto its first two variables. Amber marks the current
+          global best; pale cells are the wider flower field.</p>
+      </div>
+    </div>
+
+    <div class="best">
+      <h2 style="font-size:13px;letter-spacing:.18em;text-transform:uppercase;font-family:'IBM Plex Sans',sans-serif;font-weight:600;color:var(--dim);margin-bottom:8px">Best flower vector</h2>
+      <pre id="o-vec">Nothing found yet. Start a search.</pre>
+    </div>
+  </div>
+</div>
+
+<footer>eBee algorithm by Besdok. This page reimplements the MATLAB reference in plain JavaScript —
+same phase order, same Lévy-flight scaling, same greedy update rules.</footer>
+</div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   Numeric helpers that mirror the MATLAB primitives used by eBee
+   ============================================================ */
+
+function randi(hi, n) {                      // integers in 1..hi
+  const a = new Array(n);
+  for (let i = 0; i < n; i++) a[i] = 1 + Math.floor(Math.random() * hi);
+  return a;
+}
+function randiScalar(lo, hi) {
+  return lo + Math.floor(Math.random() * (hi - lo + 1));
+}
+function randperm(n, k) {                    // k distinct values from 1..n
+  const a = new Array(n);
+  for (let i = 0; i < n; i++) a[i] = i + 1;
+  for (let i = n - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a.slice(0, k === undefined ? n : k);
+}
+function zeros(r, c) {
+  const M = new Array(r);
+  for (let i = 0; i < r; i++) M[i] = new Float64Array(c);
+  return M;
+}
+function randMatrix(r, c, lb, ub) {
+  const M = zeros(r, c);
+  for (let i = 0; i < r; i++)
+    for (let j = 0; j < c; j++) M[i][j] = lb + (ub - lb) * Math.random();
+  return M;
+}
+function randn() {                           // Box-Muller
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+function gammaFn(z) {                        // Lanczos approximation
+  const g = [676.5203681218851, -1259.1392167224028, 771.32342877765313,
+             -176.61502916214059, 12.507343278686905, -0.13857109526572012,
+             9.9843695780195716e-6, 1.5056327351493116e-7];
+  if (z < 0.5) return Math.PI / (Math.sin(Math.PI * z) * gammaFn(1 - z));
+  z -= 1;
+  let x = 0.99999999999980993;
+  for (let i = 0; i < g.length; i++) x += g[i] / (z + i + 1);
+  const t = z + g.length - 0.5;
+  return Math.sqrt(2 * Math.PI) * Math.pow(t, z + 0.5) * Math.exp(-t) * x;
+}
+
+/* ============================================================
+   Objective functions — each takes a matrix and returns one
+   value per row, exactly like the MATLAB versions
+   ============================================================ */
+
+const OBJECTIVES = {
+  rosenbrock(X) {
+    return X.map(r => {
+      let s = 0;
+      for (let i = 0; i < r.length - 1; i++)
+        s += 100 * Math.pow(r[i + 1] - r[i] * r[i], 2) + Math.pow(1 - r[i], 2);
+      return s;
+    });
+  },
+  sphere(X) {
+    return X.map(r => r.reduce((s, v) => s + v * v, 0));
+  },
+  rastrigin(X) {
+    return X.map(r => r.reduce(
+      (s, v) => s + v * v - 10 * Math.cos(2 * Math.PI * v) + 10, 0));
+  },
+  ackley(X) {
+    return X.map(r => {
+      const n = r.length;
+      let s1 = 0, s2 = 0;
+      for (const v of r) { s1 += v * v; s2 += Math.cos(2 * Math.PI * v); }
+      return -20 * Math.exp(-0.2 * Math.sqrt(s1 / n)) - Math.exp(s2 / n) + 20 + Math.E;
+    });
+  },
+  griewank(X) {
+    return X.map(r => {
+      let s = 0, p = 1;
+      for (let i = 0; i < r.length; i++) { s += r[i] * r[i] / 4000; p *= Math.cos(r[i] / Math.sqrt(i + 1)); }
+      return s - p + 1;
+    });
+  },
+  schwefel(X) {
+    return X.map(r => 418.9829 * r.length -
+      r.reduce((s, v) => s + v * Math.sin(Math.sqrt(Math.abs(v))), 0));
+  }
+};
+
+/* ============================================================
+   eBee sub-functions
+   ============================================================ */
+
+function levyFlight(N, ndim, beta) {
+  const num = gammaFn(1 + beta) * Math.sin(Math.PI * beta / 2);
+  const den = gammaFn((1 + beta) / 2) * beta * Math.pow(2, (beta - 1) / 2);
+  const sigmaU = Math.pow(num / den, 1 / beta);
+
+  const L = zeros(N, ndim);
+  for (let i = 0; i < N; i++)
+    for (let j = 0; j < ndim; j++) {
+      const U = sigmaU * randn(), V = randn();
+      L[i][j] = U / Math.pow(Math.abs(V), 1 / beta);
+    }
+
+  // Row exponents: about 10% of rows keep a pure Levy step, the rest are damped
+  const nOne = Math.ceil(0.10 * N), nRand = Math.ceil(0.90 * N);
+  const k = [];
+  for (let i = 0; i < nOne; i++) k.push(1);
+  for (let i = 0; i < nRand; i++) k.push(3 * Math.random());
+  const order = randperm(k.length, N);
+
+  for (let i = 0; i < N; i++) {
+    const e = k[order[i] - 1];
+    for (let j = 0; j < ndim; j++)
+      L[i][j] = Math.sign(L[i][j]) * Math.pow(Math.abs(L[i][j]), e);
+  }
+  return L;
+}
+
+function generateMask(A, B) {
+  // Decides which nectar sites of a visited flower are actually harvested
+  const M = zeros(A, B);
+  const k = Math.abs(randiScalar(0, 1) - Math.pow(Math.random(), randiScalar(2, 10)));
+  const h = Math.ceil(k * B);
+  for (let i = 0; i < A; i++) {
+    const v = randperm(B);
+    for (let t = 0; t < h; t++) M[i][v[t] - 1] = 1;
+  }
+  return M;
+}
+
+function generateMS(nnectar, nDim, T) {
+  const M = generateMask(nnectar, nDim);
+  const c = Math.random() <= T ? 1 : nDim;   // one flower, or the whole local habitat
+  const beta = 1.10 + Math.random() * 0.90;
+  const scale = levyFlight(nnectar, c, beta);
+  return { M, scale, c };
+}
+
+function selectByProbability(x, N) {
+  const mn = Math.min(...x), eps = 2.220446049250313e-16;
+  const f = x.map(v => Math.pow(Math.abs(v + mn + eps), 5));
+  const tot = f.reduce((a, b) => a + b, 0) || eps;
+  const p = f.map(v => v / tot);
+  const ind = new Array(N);
+  for (let i = 0; i < N; i++) {
+    const target = Math.pow(Math.random(), randiScalar(5, 10));
+    let bi = 0, bd = Infinity;
+    for (let j = 0; j < p.length; j++) {
+      const d = Math.abs(p[j] - target);
+      if (d < bd) { bd = d; bi = j; }
+    }
+    ind[i] = bi + 1;
+  }
+  return ind;
+}
+
+/* ============================================================
+   The eBee optimiser, driven one cycle at a time so the page
+   stays responsive while it searches
+   ============================================================ */
+
+class EBee {
+  constructor(objName, N, D, lb, ub) {
+    this.f = OBJECTIVES[objName];
+    this.N = N; this.D = D; this.lb = lb; this.ub = ub;
+    this.CSize = 2;
+    this.evals = 0;
+    this.iteration = 0;
+    this.history = [];
+    this.scaleMode = null;   // decided on the first paint, then held
+    this.phase = { emp: false, onl: false, sct: false };
+
+    this.Meadow = randMatrix(this.CSize * N, D, lb, ub);
+    this.fitMeadow = this.evaluate(this.Meadow);
+
+    let bi = 0;
+    for (let i = 1; i < this.fitMeadow.length; i++)
+      if (this.fitMeadow[i] < this.fitMeadow[bi]) bi = i;
+    this.gBest = Array.from(this.Meadow[bi]);
+    this.gBestVal = this.fitMeadow[bi];
+
+    this.wildflowers = randMatrix(N, D, lb, ub);
+    this.J = randperm(this.CSize * N, N);
+  }
+
+  evaluate(X) { this.evals += X.length; return this.f(X); }
+
+  clampEval(Y) {
+    for (const r of Y)
+      for (let j = 0; j < r.length; j++) r[j] = Math.max(this.lb, Math.min(this.ub, r[j]));
+    return this.evaluate(Y);
+  }
+
+  // Greedy selection: a new flower replaces the old one only if it is better
+  update(X, fitX, Y) {
+    const fitY = this.clampEval(Y);
+    for (let i = 0; i < X.length; i++)
+      if (fitY[i] < fitX[i]) { X[i] = Y[i]; fitX[i] = fitY[i]; }
+  }
+
+  // Derangement: a permutation with no fixed point
+  derangement(n) {
+    while (true) {
+      const j = randperm(n);
+      let fixed = false;
+      for (let i = 0; i < n; i++) if (j[i] === i + 1) { fixed = true; break; }
+      if (!fixed) return j;
+    }
+  }
+
+  step() {
+    const { N, D } = this;
+    const rows = idx => idx.map(i => Float64Array.from(this.Meadow[i - 1]));
+
+    let FlowerField = rows(this.J);
+    let fitFlowers = this.J.map(i => this.fitMeadow[i - 1]);
+
+    // Snapshot shared with the onlooker bees later in the cycle
+    const Flowers0 = FlowerField.map(r => Float64Array.from(r));
+    const fitFlowers0 = fitFlowers.slice();
+
+    /* ---------- Employed-bee phase ---------- */
+    this.phase.emp = true;
+    let j = this.derangement(N);
+    let { M, scale, c } = generateMS(N, D, 0.10);
+    let dx = zeros(N, D);
+
+    if (Math.random() < 0.50) {
+      // Line search towards another flower
+      for (let i = 0; i < N; i++)
+        for (let d = 0; d < D; d++) dx[i][d] = FlowerField[j[i] - 1][d] - FlowerField[i][d];
+    } else {
+      // Area search built from two distinct partners
+      const j1 = [], j2 = [];
+      for (let i = 0; i < N; i++) {
+        let a = 1 + Math.floor(Math.random() * (N - 1));
+        if (a >= i + 1) a += 1;
+        let b = 1 + Math.floor(Math.random() * (N - 2));
+        const lo = Math.min(i + 1, a), hi = Math.max(i + 1, a);
+        if (b >= lo) b += 1;
+        if (b >= hi) b += 1;
+        j1.push(a); j2.push(b);
+      }
+      const useBest = Math.random() >= 0.50;
+      for (let i = 0; i < N; i++) {
+        let w1 = Math.random(), w2 = Math.random();
+        if (w1 + w2 > 1) { w1 = 1 - w1; w2 = 1 - w2; }
+        for (let d = 0; d < D; d++) {
+          const h = useBest ? this.gBest[d] : FlowerField[i][d];
+          dx[i][d] = w1 * (FlowerField[j1[i] - 1][d] - h) + w2 * (FlowerField[j2[i] - 1][d] - h);
+        }
+      }
+    }
+
+    let cand = zeros(N, D);
+    for (let i = 0; i < N; i++)
+      for (let d = 0; d < D; d++)
+        cand[i][d] = FlowerField[i][d] + M[i][d] * scale[i][c === 1 ? 0 : d] * dx[i][d];
+    this.update(FlowerField, fitFlowers, cand);
+
+    /* ---------- Onlooker-bee phase ---------- */
+    this.phase.onl = true;
+    const j0 = this.derangement(N);
+    let j1p;
+    while (true) {
+      j1p = randperm(N);
+      let clash = false;
+      for (let i = 0; i < N; i++) if (j1p[i] === j0[i]) { clash = true; break; }
+      if (!clash) break;
+    }
+
+    ({ M, scale, c } = generateMS(N, D, 0.90));
+
+    const ind = selectByProbability(fitFlowers0, Math.ceil(N / 2));
+    const indFlowers = randi(ind.length, N).map(t => ind[t - 1]);
+    if (Math.random() < Math.random()) j1p = indFlowers;   // elitist cycle
+
+    cand = zeros(N, D);
+    for (let i = 0; i < N; i++)
+      for (let d = 0; d < D; d++) {
+        const dxi = Flowers0[j1p[i] - 1][d] - FlowerField[j0[i] - 1][d];
+        cand[i][d] = FlowerField[i][d] + M[i][d] * scale[i][c === 1 ? 0 : d] * dxi;
+      }
+
+    const nectar1 = Flowers0.map(r => Float64Array.from(r));
+    const fitNectar1 = fitFlowers0.slice();
+    this.update(nectar1, fitNectar1, cand);
+
+    for (let i = 0; i < N; i++)
+      if (fitNectar1[i] < fitFlowers[i]) {
+        FlowerField[i] = Float64Array.from(nectar1[i]);
+        fitFlowers[i] = fitNectar1[i];
+      }
+
+    /* ---------- Scout-bee phase ---------- */
+    this.phase.sct = false;
+    if (Math.random() < 0.10) {
+      this.phase.sct = true;
+      ({ M, scale, c } = generateMS(N, D, 0.90));
+      cand = zeros(N, D);
+      for (let i = 0; i < N; i++)
+        for (let d = 0; d < D; d++) {
+          const dxi = this.wildflowers[i][d] - FlowerField[i][d];
+          cand[i][d] = FlowerField[i][d] + M[i][d] * scale[i][c === 1 ? 0 : d] * dxi;
+        }
+      this.update(FlowerField, fitFlowers, cand);
+    }
+
+    /* ---------- Write back to the meadow ---------- */
+    for (let i = 0; i < N; i++) {
+      this.Meadow[this.J[i] - 1] = FlowerField[i];
+      this.fitMeadow[this.J[i] - 1] = fitFlowers[i];
+    }
+    if (Math.random() < 0.50) this.J = randperm(this.CSize * N, N);
+
+    let bi = 0;
+    for (let i = 1; i < this.fitMeadow.length; i++)
+      if (this.fitMeadow[i] < this.fitMeadow[bi]) bi = i;
+    if (this.fitMeadow[bi] < this.gBestVal) {
+      this.gBestVal = this.fitMeadow[bi];
+      this.gBest = Array.from(this.Meadow[bi]);
+    }
+
+    this.iteration++;
+    // Guard: the plotted series is the running minimum, so it can never rise
+    const last = this.history.length ? this.history[this.history.length - 1] : Infinity;
+    this.history.push(Math.min(last, this.gBestVal));
+    if (this.iteration % 100 === 0)
+      this.wildflowers = randMatrix(N, D, this.lb, this.ub);
+  }
+}
+
+/* ============================================================
+   Page wiring
+   ============================================================ */
+
+const $ = id => document.getElementById(id);
+const convCanvas = $("conv"), fieldCanvas = $("field");
+let solver = null, running = false, raf = null;
+
+function readSetup() {
+  return {
+    fn: $("fn").value,
+    N: Math.max(4, +$("N").value | 0),
+    D: Math.max(2, +$("D").value | 0),
+    lb: +$("lb").value,
+    ub: +$("ub").value,
+    cyc: Math.max(1, +$("cyc").value | 0),
+    spd: Math.max(1, +$("spd").value | 0)
+  };
+}
+
+// One format for the whole run, matching the reference '%5.16f' output.
+// Switching notation mid-run makes a falling value read as a rising one.
+function fmt(v) {
+  if (v === undefined || !isFinite(v)) return "—";
+  return v.toFixed(16);
+}
+
+function paintConvergence() {
+  const c = convCanvas, ctx = c.getContext("2d");
+  const W = c.width, H = c.height, pad = 46;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = "#0D0B09"; ctx.fillRect(0, 0, W, H);
+  if (!solver || solver.history.length < 2) return;
+
+  const h = solver.history;
+
+  // The scale is chosen once and never flips. A run that reaches zero or goes
+  // negative would otherwise redraw the whole curve on a different axis and
+  // look like it climbed back up.
+  if (solver.scaleMode === null)
+    solver.scaleMode = h.every(v => v > 0) ? "log" : "linear";
+  if (solver.scaleMode === "log" && h[h.length - 1] <= 0) solver.scaleMode = "linear";
+
+  const t = solver.scaleMode === "log" ? h.map(v => Math.log10(Math.max(v, 1e-300))) : h.slice();
+  let lo = t[0], hi = t[0];
+  for (const v of t) { if (v < lo) lo = v; if (v > hi) hi = v; }
+  if (hi - lo < 1e-12) { hi = lo + 1; }
+  const positive = solver.scaleMode === "log";
+
+  // Frame and gridlines
+  ctx.strokeStyle = "#332E25"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad, 10); ctx.lineTo(pad, H - pad); ctx.lineTo(W - 12, H - pad); ctx.stroke();
+  ctx.fillStyle = "#8E8676"; ctx.font = "11px 'IBM Plex Mono', monospace";
+  for (let g = 0; g <= 4; g++) {
+    const y = 10 + (H - pad - 10) * g / 4;
+    const val = hi - (hi - lo) * g / 4;
+    ctx.strokeStyle = "#231F19";
+    ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(W - 12, y); ctx.stroke();
+    ctx.fillText(positive ? "1e" + val.toFixed(1) : val.toPrecision(3), 4, y + 4);
+  }
+
+  ctx.strokeStyle = "#E8A317"; ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = 0; i < t.length; i++) {
+    const x = pad + (W - pad - 12) * (i / (t.length - 1));
+    const y = 10 + (H - pad - 10) * (1 - (t[i] - lo) / (hi - lo));
+    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  }
+  ctx.stroke();
+
+  ctx.fillStyle = "#8E8676";
+  ctx.fillText("cycle 0", pad, H - pad + 18);
+  ctx.fillText("cycle " + solver.iteration, W - 90, H - pad + 18);
+}
+
+function paintField() {
+  const c = fieldCanvas, ctx = c.getContext("2d");
+  const W = c.width, H = c.height, pad = 24;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = "#0D0B09"; ctx.fillRect(0, 0, W, H);
+  if (!solver) return;
+
+  const { lb, ub } = solver;
+  const sx = v => pad + (W - 2 * pad) * (v - lb) / (ub - lb);
+  const sy = v => H - pad - (H - 2 * pad) * (v - lb) / (ub - lb);
+
+  ctx.strokeStyle = "#231F19"; ctx.lineWidth = 1;
+  for (let g = 0; g <= 6; g++) {
+    const x = pad + (W - 2 * pad) * g / 6, y = pad + (H - 2 * pad) * g / 6;
+    ctx.beginPath(); ctx.moveTo(x, pad); ctx.lineTo(x, H - pad); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(W - pad, y); ctx.stroke();
+  }
+
+  // Hexagonal markers keep the comb motif of the algorithm's own vocabulary
+  const hex = (x, y, r) => {
+    ctx.beginPath();
+    for (let k = 0; k < 6; k++) {
+      const a = Math.PI / 6 + k * Math.PI / 3;
+      const px = x + r * Math.cos(a), py = y + r * Math.sin(a);
+      k ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+    }
+    ctx.closePath();
+  };
+
+  ctx.fillStyle = "rgba(140,156,121,0.45)";
+  for (const r of solver.Meadow) { hex(sx(r[0]), sy(r[1]), 4); ctx.fill(); }
+
+  ctx.fillStyle = "#E8A317";
+  hex(sx(solver.gBest[0]), sy(solver.gBest[1]), 8); ctx.fill();
+  ctx.strokeStyle = "#F2C14E"; ctx.lineWidth = 1.5;
+  hex(sx(solver.gBest[0]), sy(solver.gBest[1]), 14); ctx.stroke();
+
+  ctx.fillStyle = "#8E8676"; ctx.font = "11px 'IBM Plex Mono', monospace";
+  ctx.fillText("x1", W / 2, H - 6);
+  ctx.fillText("x2", 4, 14);
+}
+
+function paintReadout() {
+  if (!solver) return;
+  $("o-iter").textContent = solver.iteration;
+  $("o-val").textContent = fmt(solver.gBestVal);
+  $("o-fe").textContent = solver.evals.toLocaleString("en-US");
+  $("o-vec").textContent = solver.gBest.map((v, i) =>
+    "x" + String(i + 1).padStart(2, "0") + " = " + v.toFixed(8)).join("\n");
+  $("t-emp").classList.toggle("on", solver.phase.emp);
+  $("t-onl").classList.toggle("on", solver.phase.onl);
+  $("t-sct").classList.toggle("on", solver.phase.sct);
+}
+
+function loop() {
+  if (!running) return;
+  const { cyc, spd } = readSetup();
+  for (let i = 0; i < spd && solver.iteration < cyc; i++) solver.step();
+  paintReadout(); paintConvergence(); paintField();
+  if (solver.iteration >= cyc) { pause(); return; }
+  raf = requestAnimationFrame(loop);
+}
+
+function start() {
+  const s = readSetup();
+  if (s.ub <= s.lb) { $("o-vec").textContent = "Upper bound must be greater than lower bound."; return; }
+  if (!solver) solver = new EBee(s.fn, s.N, s.D, s.lb, s.ub);
+  running = true;
+  $("run").disabled = true; $("stop").disabled = false;
+  loop();
+}
+function pause() {
+  running = false;
+  if (raf) cancelAnimationFrame(raf);
+  $("run").disabled = false; $("stop").disabled = true;
+  $("run").textContent = solver && solver.iteration ? "Resume search" : "Start search";
+}
+function reset() {
+  pause();
+  solver = null;
+  $("run").textContent = "Start search";
+  $("o-iter").textContent = "0"; $("o-val").textContent = "—"; $("o-fe").textContent = "0";
+  $("o-vec").textContent = "Nothing found yet. Start a search.";
+  [convCanvas, fieldCanvas].forEach(c => {
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#0D0B09"; ctx.fillRect(0, 0, c.width, c.height);
+  });
+  ["t-emp", "t-onl", "t-sct"].forEach(id => $(id).classList.remove("on"));
+}
+
+$("run").addEventListener("click", start);
+$("stop").addEventListener("click", pause);
+$("reset").addEventListener("click", reset);
+["fn", "N", "D", "lb", "ub"].forEach(id => $(id).addEventListener("change", reset));
+
+reset();
+</script>
