@@ -1,0 +1,2053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>eBee Lab — MATLAB-faithful swarm optimiser</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<style>
+:root{
+  --paper:#FFFFFF; --mist:#F6F5F2; --mist-2:#EFEDE8; --line:#E3E0D9; --line-2:#D3CFC6;
+  --ink:#2E2C36; --ink-2:#555262; --mute:#8A8794;
+  --sage:#C5D6C1; --sage-d:#7E9E87;
+  --rose:#EBCBC6; --rose-d:#C58F89;
+  --sky:#C9DAE8; --sky-d:#7FA3C4;
+  --butter:#F3E2B8; --butter-d:#C9A35A;
+  --lilac:#DCD2E9; --lilac-d:#9F8FBF;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:15px;line-height:1.55;
+  -webkit-font-smoothing:antialiased}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.6;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='56' height='96' viewBox='0 0 56 96'><path d='M28 0 L56 16 L56 48 L28 64 L0 48 L0 16 Z M28 64 L56 80 L56 112 M28 64 L0 80 L0 112' fill='none' stroke='%232E2C36' stroke-opacity='0.045' stroke-width='1'/></svg>");}
+.wrap{position:relative;z-index:1;max-width:1320px;margin:0 auto;padding:34px 24px 70px}
+h1,h2,h3{font-family:"Fraunces",Georgia,serif;font-weight:400;margin:0}
+code,.mono,input,select,pre{font-family:"IBM Plex Mono",ui-monospace,monospace}
+code{background:var(--mist);border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:.92em}
+
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:26px;flex-wrap:wrap;
+  border-bottom:1px solid var(--line);padding-bottom:22px}
+h1{font-size:clamp(36px,6vw,62px);letter-spacing:-.025em;line-height:1;color:var(--ink)}
+h1 em{font-style:italic;font-weight:300;color:var(--sage-d)}
+.tagline{color:var(--ink-2);max-width:60ch;font-size:13.5px;margin:10px 0 0}
+.badges{display:flex;gap:8px;flex-wrap:wrap}
+.badge{font-size:12px;border:1px solid var(--line);padding:6px 12px;border-radius:99px;
+  color:var(--ink-2);background:var(--mist)}
+.badge b{color:var(--ink);font-weight:600}
+
+.grid{display:grid;grid-template-columns:330px 1fr;gap:24px;margin-top:26px}
+@media (max-width:980px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--mist);border:1px solid var(--line);border-radius:16px;padding:22px}
+.panel h2,.sec-title{font-size:13px;font-family:"IBM Plex Sans",sans-serif;font-weight:600;
+  color:var(--ink);margin:0 0 14px;display:flex;align-items:center;gap:9px}
+.panel h2::before,.sec-title::before{content:"";width:8px;height:9px;background:var(--butter-d);
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);flex:none}
+.sec-title.sky::before{background:var(--sky-d)}
+.sec-title.sage::before{background:var(--sage-d)}
+.sec-title.lilac::before{background:var(--lilac-d)}
+.sec-title .katex{font-size:1.1em;color:var(--ink)}
+label{display:block;font-size:12px;color:var(--mute);margin:14px 0 5px;font-weight:500}
+input,select{width:100%;background:var(--paper);border:1px solid var(--line-2);color:var(--ink);
+  padding:9px 10px;border-radius:9px;font-size:13px;transition:border-color .15s,box-shadow .15s}
+select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8'><path d='M1 1l5 5 5-5' fill='none' stroke='%237E9E87' stroke-width='1.6'/></svg>");
+  background-repeat:no-repeat;background-position:right 11px center;padding-right:30px}
+input:hover,select:hover{border-color:var(--sage-d)}
+input:focus,select:focus{outline:none;border-color:var(--sage-d);box-shadow:0 0 0 3px rgba(126,158,135,.22)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.seedrow button{width:100%;padding:9px;font-size:12.5px}
+.buttons{display:flex;gap:9px;margin-top:20px}
+button{flex:1;border:1px solid var(--sage-d);border-radius:10px;cursor:pointer;
+  background:var(--sage);color:var(--ink);
+  font-family:"IBM Plex Sans",sans-serif;font-weight:600;font-size:13px;padding:11px;
+  transition:background .16s,border-color .16s}
+button:hover{background:#B6CBB2}
+button.ghost{background:var(--paper);color:var(--ink-2);border-color:var(--line-2)}
+button.ghost:hover{background:var(--mist-2);border-color:var(--sage-d);color:var(--ink)}
+button.abc-btn{background:#FDECEC;color:#A61C1C;border-color:#D9383A}
+button.abc-btn:hover{background:#FAD4D4;border-color:#B81D1F;color:#7A1010}
+button.abc-btn.active{background:#D9383A;color:#FFFFFF;border-color:#A61C1C}
+.box{margin-top:14px;padding:14px;border-radius:12px;background:#FFFFFF;border:1px solid var(--line)}
+.box:first-of-type{margin-top:0}
+.box h3{font-size:12.5px;font-family:"IBM Plex Sans",sans-serif;font-weight:600;color:var(--ink,#2E2C36);margin:0 0 8px;display:flex;align-items:center}
+.box h3::before{content:"";width:8px;height:9px;background:var(--butter-d);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);display:inline-block;margin-right:7px}
+.box label{margin:8px 0 4px;font-size:11.5px}
+.box.stop{background:#FFFBEA;border-color:#EBD98F}
+.box.ebee{background:#F4F8FC;border-color:#BCD0E3}
+.box.ebee h3{color:#3E6A93}
+.box.ebee h3::before{background:#7FA3C4}
+.box .buttons:first-child{margin-top:0}
+.abc-box{margin-top:14px;padding:14px;border-radius:12px;background:#FFF8F8;border:1px solid #F2C9C9}
+.abc-box h3{font-size:12.5px;font-family:"IBM Plex Sans",sans-serif;font-weight:600;color:#A61C1C;margin:0 0 8px;display:flex;align-items:center;justify-content:space-between}
+.abc-box h3::before{content:"";width:8px;height:9px;background:#D9383A;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);display:inline-block;margin-right:7px}
+.abc-box label{color:#7A3E3E;margin:8px 0 4px;font-size:11.5px}
+.abc-box input{border-color:#E6B8B8;background:#FFFFFF}
+.abc-box input:hover,.abc-box input:focus{border-color:#D9383A;box-shadow:0 0 0 3px rgba(217,56,58,.15)}
+.abc-sub{font-size:11px;color:#8A5A5A;margin-top:6px;line-height:1.4;font-family:"IBM Plex Mono",monospace}
+button:disabled{opacity:.4;cursor:not-allowed;background:var(--mist-2);border-color:var(--line)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--sky-d);outline-offset:2px}
+
+.readout{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);
+  border:1px solid var(--line);border-radius:16px;overflow:hidden}
+@media (max-width:700px){.readout{grid-template-columns:1fr 1fr}}
+.cell{background:var(--paper);padding:15px 18px;border-top:4px solid var(--sky)}
+.cell:nth-child(2){border-top-color:var(--rose)}
+.cell:nth-child(3){border-top-color:var(--butter)}
+.cell:nth-child(4){border-top-color:var(--lilac)}
+.cell .k{font-size:12px;color:var(--mute);font-weight:500}
+.cell .v{font-family:"IBM Plex Mono",monospace;font-size:16px;color:var(--ink);
+  margin-top:6px;word-break:break-all;line-height:1.3}
+
+.fcard{margin-top:20px;background:var(--mist);border:1px solid var(--line);border-radius:16px;padding:18px 20px}
+.fcard .fhead{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.fcard .fname{font-family:"Fraunces",serif;font-size:24px;color:var(--ink);letter-spacing:-.01em}
+.fcard .fname small{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--mute);margin-left:8px}
+.fcard .formula{margin-top:12px;background:var(--paper);border:1px solid var(--line);border-radius:12px;
+  padding:14px 18px;overflow-x:auto;color:var(--ink);font-size:16px}
+.fcard .formula .katex-display{margin:.45em 0}
+.fcard .formula .katex{font-size:1.08em}
+.fcard .formula .line+.line{border-top:1px dashed var(--line);margin-top:6px;padding-top:6px}
+.fcard .formula .plain{font-family:"IBM Plex Mono",monospace;font-size:13px;white-space:pre-wrap}
+.fcard .note{margin:12px 0 0;font-size:13px;color:var(--ink-2);line-height:1.5;
+  background:var(--butter);border-left:3px solid var(--butter-d);border-radius:0 8px 8px 0;padding:8px 12px}
+.fcard .note b{color:var(--ink);font-weight:600}
+.fcard .meta{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
+.chip{font-size:12px;color:var(--ink-2);border:1px solid var(--line);background:var(--paper);
+  border-radius:99px;padding:4px 11px}
+.chip b{color:var(--ink);font-family:"IBM Plex Mono",monospace;font-weight:500}
+
+.plots{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px}
+@media (max-width:980px){.plots{grid-template-columns:1fr}}
+.plotbox{background:var(--mist);border:1px solid var(--line);border-radius:16px;padding:16px}
+canvas{width:100%;height:340px;display:block;border-radius:10px;background:var(--paper);border:1px solid var(--line)}
+.caption{color:var(--mute);font-size:12px;margin-top:9px}
+.plotfoot{display:flex;gap:12px;align-items:flex-start;justify-content:space-between}
+.plotfoot .caption{flex:1}
+.savebtn{flex:none;width:auto;margin-top:7px;padding:6px 11px;font-size:12px;white-space:nowrap}
+#toasts{position:fixed;top:16px;right:16px;z-index:1000;display:flex;flex-direction:column;gap:10px;max-width:min(380px,calc(100vw - 32px))}
+.toast{display:flex;gap:10px;align-items:flex-start;padding:12px 12px 12px 14px;border-radius:12px;background:#FFFFFF;
+  border:1px solid var(--line);border-left-width:5px;box-shadow:0 8px 24px rgba(30,28,40,.18);font-size:13px;line-height:1.45;color:#2E2C36}
+.toast.ebee{border-left-color:#7FA3C4}
+.toast.abc{border-left-color:#E02424}
+.toast.info{border-left-color:#C9A227}
+.toast .tt{font-weight:600;margin-bottom:2px}
+.toast .tb{white-space:pre-line;font-family:"IBM Plex Mono",monospace;font-size:12px;color:#5F5C68;word-break:break-word}
+.toast .tx{flex:none;width:auto;margin:-2px 0 0 auto;padding:0 6px;border:0;background:transparent;color:#5F5C68;font-size:20px;line-height:1.2;cursor:pointer}
+.toast .tx:hover{color:#2E2C36;background:transparent}
+.best{margin-top:20px;background:var(--mist);border:1px solid var(--line);border-radius:16px;padding:16px}
+.best pre{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:14px;
+  overflow:auto;font-size:12.5px;color:var(--ink-2);margin:0;max-height:190px;line-height:1.7}
+.phase{display:flex;gap:7px;margin-top:18px;flex-wrap:wrap}
+.tag{font-size:12px;border:1px solid var(--line-2);padding:5px 12px;border-radius:99px;
+  color:var(--mute);font-weight:500;background:var(--paper);transition:.2s}
+.tag.on{border-color:transparent;color:var(--ink)}
+#t-emp.on{background:var(--sky)} #t-onl.on{background:var(--rose)} #t-sct.on{background:var(--lilac)}
+.hint{font-size:12px;color:var(--mute);margin-top:10px;line-height:1.5}
+footer{margin-top:44px;border-top:1px solid var(--line);padding-top:18px;
+  color:var(--mute);font-size:12px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:9px}
+::-webkit-scrollbar-track{background:transparent}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div>
+    <h1>eBee <em>Lab</em></h1>
+    <p class="tagline">Besdok, Erkan. (2026). eBee: An Elite-Guided Artificial Bee Colony Algorithm with Stochastic Mask-Driven Exploration for Numerical and Engineering Optimization. Applied Soft Computing. </p>
+  </div>
+  <div class="badges">
+    <span class="badge"><b id="b-count">0</b> objectives</span>
+    <span class="badge">MATLAB <b>R2024a</b> parity</span>
+    <span class="badge">Lévy flight, mask + scale</span>
+  </div>
+</header>
+
+<div id="toasts" role="status" aria-live="polite"></div>
+<div class="grid">
+  <div class="panel">
+    <h2>Run setup</h2>
+
+    <div class="box stop">
+      <h3>Stopping conditions</h3>
+      <div class="row">
+        <div><label for="maxfe" title="Priority stopping condition for both eBee and ABC. Each algorithm stops as soon as its own function-evaluation count reaches this value.">Max function evaluations (priority stop)</label><input id="maxfe" type="number" value="1000000" min="1" step="1"></div>
+        <div><label for="cyc" title="Secondary stopping condition; only applies if reached before Max function evaluations.">Max cycles (secondary stop)</label><input id="cyc" type="number" value="100000" min="1"></div>
+      </div>
+    </div>
+
+    <div class="box">
+      <h3>Problem &amp; random seed</h3>
+      <label for="fn" style="margin-top:0">Objective function</label>
+      <select id="fn"></select>
+      <div class="row">
+        <div><label for="D">Dimension D</label><input id="D" type="number" value="30" min="2" step="1"></div>
+        <div><label for="seed">Random seed</label><input id="seed" type="number" value="42" min="0" max="4294967295" step="1"></div>
+      </div>
+      <div class="row">
+        <div><label for="lb">Lower bound</label><input id="lb" type="number" step="any" value="-30"></div>
+        <div><label for="ub">Upper bound</label><input id="ub" type="number" step="any" value="30"></div>
+      </div>
+      <div class="row seedrow" style="margin-top:10px">
+        <div></div>
+        <div><button id="newseed" class="ghost" type="button" title="Draw a new random seed">New seed</button></div>
+      </div>
+    </div>
+
+    <div class="box ebee">
+      <h3>eBee Control Parameters</h3>
+      <div class="row">
+        <div><label for="N" title="Number of flowers (colony size) in eBee">Colony N</label><input id="N" type="number" value="15" min="2" step="1"></div>
+        <div><label for="CS" title="Meadow size multiplier: Meadow = CSize × N">CSize</label><input id="CS" type="number" value="2" min="1" step="1"></div>
+      </div>
+    </div>
+
+    <div class="abc-box">
+      <h3><span>ABC Control Parameters (<code>ABCOpts</code>)</span></h3>
+      <div class="row">
+        <div>
+          <label for="abc-cs" title="Number of Employed Bees + Number of Onlooker Bees (Food sources = ColonySize / 2)">ColonySize (NP)</label>
+          <input id="abc-cs" type="number" value="30" min="4" step="2">
+        </div>
+        <div>
+          <label for="abc-limit" title="Control parameter in order to abandon the food source (ABCOpts.Limit)">Limit (Trial max)</label>
+          <input id="abc-limit" type="number" value="100" min="1" step="1">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="abc-cyc" title="Maximum cycle number for ABC (ABCOpts.MaxCycles); follows the Max cycles field above when that is edited">ABC MaxCycles</label>
+          <input id="abc-cyc" type="number" value="100000" min="1" step="1">
+        </div>
+        <div>
+          <label for="abc-err" title="Error goal in order to terminate (ABCOpts.ErrGoal)">ErrGoal</label>
+          <input id="abc-err" type="number" value="1e-20" step="any">
+        </div>
+      </div>
+      <div class="abc-sub" id="abc-info">Employed: 15 | Onlooker: 15 | Limit: 100</div>
+    </div>
+
+    <div class="box" style="margin-top:14px">
+      <h3>Run controls</h3>
+      <div class="row">
+        <div><label for="spd" title="Display speed: how many cycles are computed per animation frame" style="margin-top:0">Cycles / frame</label><input id="spd" type="number" value="25" min="1"></div>
+        <div></div>
+      </div>
+    <div class="buttons">
+      <button id="run">Start search</button>
+      <button id="stop" class="ghost" disabled>Pause</button>
+    </div>
+    <div class="buttons" style="margin-top:9px">
+      <button id="run-abc" class="abc-btn" type="button" title="Aynı başlangıç tohumu (seed) ile bağımsız ABC_PureCode eğitim grafiğini kırmızı olarak ekle">+ ABC Compare (Red)</button>
+      <button id="reset" class="ghost">Reset</button>
+    </div>
+
+    <div class="phase">
+      <span class="tag" id="t-emp">Direction</span>
+      <span class="tag" id="t-onl">Area</span>
+      <span class="tag" id="t-sct">Random</span>
+    </div>
+    <p class="hint">D, lower and upper bounds auto-fill from the embedded <code>fncParams.csv</code>
+    when you pick a function. Editing any of them (or the seed) resets the run; the same seed reproduces the same search.</p>
+    </div>
+  </div>
+
+  <div>
+    <div class="readout">
+      <div class="cell"><div class="k">Cycle</div><div class="v" id="o-iter">0</div></div>
+      <div class="cell"><div class="k">Best value (eBee / <span style="color:#D9383A">ABC</span>)</div><div class="v" id="o-val">—</div><div class="v" id="o-val-abc" style="color:#D9383A;font-size:13px;margin-top:3px;display:none">—</div></div>
+      <div class="cell"><div class="k">Evaluations (eBee / <span style="color:#D9383A">ABC</span>)</div><div class="v" id="o-fe">0</div><div class="v" id="o-fe-abc" style="color:#D9383A;font-size:13px;margin-top:3px;display:none">0</div></div>
+      <div class="cell"><div class="k">Pop size (eBee / <span style="color:#D9383A">ABC</span>)</div><div class="v" id="o-pop">—</div><div class="v" id="o-pop-abc" style="color:#D9383A;font-size:12.5px;margin-top:3px;display:none">—</div></div>
+    </div>
+
+    <div class="fcard">
+      <div class="fhead"><div class="fname" id="f-name">—</div><div class="meta" id="f-meta"></div></div>
+      <div class="formula" id="f-formula">—</div>
+      <div id="f-note"></div>
+    </div>
+
+    <div class="plots">
+      <div class="plotbox">
+        <div class="sec-title sky">Convergence</div>
+        <canvas id="conv"></canvas>
+        <div class="plotfoot">
+          <div class="caption">Best-so-far objective value. Logarithmic axis while all values stay positive.</div>
+          <button class="ghost savebtn" id="save-conv" type="button" title="Save this plot as a PNG at 300 dpi">Save PNG (300 dpi)</button>
+        </div>
+      </div>
+      <div class="plotbox">
+        <div class="sec-title sage"><span id="meadow-title" data-tex="\text{Meadow } (x_1,\; x_2)">Meadow (x<sub>1</sub>, x<sub>2</sub>)</span></div>
+        <canvas id="field"></canvas>
+        <div class="plotfoot">
+          <div class="caption">First two coordinates of every flower. The rose hexagon marks gBest.</div>
+          <button class="ghost savebtn" id="save-field" type="button" title="Save this plot as a PNG at 300 dpi">Save PNG (300 dpi)</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="best">
+      <div class="sec-title lilac">Best flower vector</div>
+      <pre id="o-vec">Nothing found yet. Start a search.</pre>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <span>eBee algorithm by Besdok — faithful JavaScript transcription of <code>eBee.m</code>.</span>
+  <span>Objectives verified against their MATLAB sources, quirks preserved.</span>
+</footer>
+</div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   fncParams.csv — embedded verbatim (name;dim;low;up)
+   ============================================================ */
+const FNC_PARAMS_CSV = `absolute;30;-100;100
+ackley;30;-32;32
+beale;5;-4.5;4.5
+bohachecsky1;2;-100;100
+bohachecsky2;2;-100;100
+bohachecsky3;2;-100;100
+booth;2;-10;10
+branin;2;-5;10
+colville;4;-10;10
+dixonprice;30;-10;10
+dropwave;2;-2;2
+easom;2;-100;100
+eggholder;2;-512;512
+fletcher;2;-3.141592654;3.141592654
+fletcher;5;-3.141592654;3.141592654
+fletcher;10;-3.141592654;3.141592654
+foxholes;2;-65.536;65.536
+giunta;2;-1;1
+goldsteinprice;2;-2;2
+griewank;30;-600;600
+hartman3;3;0;1
+hartman6;6;0;1
+himmelblau;30;-5;5
+hump;2;-5;5
+kowalik;4;-5;5
+langermann;2;0;10
+langermann;5;0;10
+langermann;10;0;10
+levy;30;-10;10
+matyas;2;-10;10
+michalewics10;10;0;3.141592654
+michalewics2;2;0;3.141592654
+michalewics5;5;0;3.141592654
+penalized;30;-50;50
+penalized2;30;-50;50
+perm;4;-4;4
+powell;24;-4;5
+powersum;4;0;4
+quartic;30;-1.28;1.28
+rastrigin;30;-5.12;5.12
+rosenbrock;30;-30;30
+schaffer;2;-100;100
+schwefel;30;-500;500
+schwefel_1_2;30;-100;100
+schwefel_2_22;30;-10;10
+shekel10;4;0;10
+shekel5;4;0;10
+shekel7;4;0;10
+shubert;2;-10;10
+sixhumpcamelback;2;-5;5
+solomon;30;-100;100
+sphere2;30;-100;100
+step2;30;-100;100
+stepint;5;-5.12;5.12
+sumsquares;30;-10;10
+trid;6;-36;36
+trid;10;-100;100
+weierstrass;30;-0.5;0.5
+whitley;30;-10;10
+zakharov;10;-5;10`;
+
+/* ============================================================
+   Numeric helpers (MATLAB semantics)
+   ============================================================ */
+const PI = Math.PI;
+/* ============================================================
+   Seeded random number generator (sfc32, seeded via splitmix32)
+   Every stochastic call in the page goes through RNG().
+   ============================================================ */
+let RNG = Math.random;
+function makeRNG(seed) {
+  let s = (seed >>> 0) || 0x9E3779B9;
+  const next32 = () => { s = (s + 0x9E3779B9) | 0; let t = s ^ (s >>> 16); t = Math.imul(t, 0x21F0AAAD);
+    t ^= t >>> 15; t = Math.imul(t, 0x735A2D97); return (t ^ (t >>> 15)) >>> 0; };
+  let a = next32(), b = next32(), c = next32(), d = next32();
+  const sfc = () => {
+    a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
+    let t = (a + b) | 0;
+    a = b ^ (b >>> 9); b = (c + (c << 3)) | 0; c = (c << 21) | (c >>> 11);
+    d = (d + 1) | 0; t = (t + d) | 0; c = (c + t) | 0;
+    return (t >>> 0) / 4294967296;
+  };
+  for (let i = 0; i < 12; i++) sfc();
+  return sfc;
+}
+function seedRNG(seed) { RNG = makeRNG(seed); }
+
+function randiScalar(lo, hi) { return lo + Math.floor(RNG() * (hi - lo + 1)); }
+function randi(hi, n) { const a = new Array(n); for (let i = 0; i < n; i++) a[i] = 1 + Math.floor(RNG() * hi); return a; }
+function randperm(n, k) {
+  const a = new Array(n);
+  for (let i = 0; i < n; i++) a[i] = i + 1;
+  for (let i = n - 1; i > 0; i--) { const j = Math.floor(RNG() * (i + 1)); const t = a[i]; a[i] = a[j]; a[j] = t; }
+  return a.slice(0, k === undefined ? n : k);
+}
+function zeros(r, c) { const M = new Array(r); for (let i = 0; i < r; i++) M[i] = new Float64Array(c); return M; }
+function randMatrix(r, c, lb, ub) {
+  const M = zeros(r, c);
+  for (let i = 0; i < r; i++) for (let j = 0; j < c; j++) M[i][j] = lb + (ub - lb) * RNG();
+  return M;
+}
+function randn() {
+  let u = 0, v = 0;
+  while (u === 0) u = RNG();
+  while (v === 0) v = RNG();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * PI * v);
+}
+function gammaFn(z) {
+  const g = [676.5203681218851, -1259.1392167224028, 771.32342877765313,
+             -176.61502916214059, 12.507343278686905, -0.13857109526572012,
+             9.9843695780195716e-6, 1.5056327351493116e-7];
+  if (z < 0.5) return PI / (Math.sin(PI * z) * gammaFn(1 - z));
+  z -= 1;
+  let x = 0.99999999999980993;
+  for (let i = 0; i < g.length; i++) x += g[i] / (z + i + 1);
+  const t = z + g.length - 0.5;
+  return Math.sqrt(2 * PI) * Math.pow(t, z + 0.5) * Math.exp(-t) * x;
+}
+const norm2 = (r, n) => { let s = 0; for (let i = 0; i < n; i++) s += r[i] * r[i]; return Math.sqrt(s); };
+// rowwise helper: applies f(row) over every individual, returns plain Array
+const each = (X, f) => { const o = new Array(X.length); for (let i = 0; i < X.length; i++) o[i] = f(X[i], X[i].length); return o; };
+
+/* ============================================================
+   OBJECTIVE FUNCTIONS
+   Transcribed 1:1 from the MATLAB R2024a reference .m files.
+   Deliberate fidelity notes are marked [MATLAB].
+   Signature: f(X) with X = Nind-by-Nvar, returns Array(Nind).
+   ============================================================ */
+
+// ---- fletcher.m constant data (A 20x20, B 21x21, alpha 1x20 -> first 10 used) ----
+const FLETCHER_A = [
+ [-79, 56,-62, -9, 92, 48,-22,-34,-39,-40],
+ [ 91, -9,-18,-59, 99,-45, 88,-14,-29, 26],
+ [-38,  8,-12,-73, 40, 26,-64, 29,-82,-32],
+ [-78,-18,-49, 65, 66,-40, 88,-95,-57, 10],
+ [ -1,-43, 93,-18,-76,-68,-42, 22, 46,-14],
+ [ 34,-96, 26,-56,-36,-85,-62, 13, 93, 78],
+ [ 52,-46,-69, 99,-47,-72,-11, 55,-55, 91],
+ [ 81, 47, 35, 55, 67,-13, 33, 14, 83,-42],
+ [  5,-43,-45, 46, 56,-94,-62, 52, 66, 55],
+ [-50, 66,-47,-75, 89,-16, 82,  6,-85,-62]];
+const FLETCHER_B = [
+ [-65,-11, 76, 78, 30, 93,-86,-99,-37, 52],
+ [ 59, 67, 49,-45, 52,-33,-34, 29,-39,-80],
+ [ 21,-23,-80, 86, 86,-30, 39,-73,-91,  5],
+ [-91,-75, 20,-64,-15, 17,-89, 36,-49, -2],
+ [-79, 99,-31, -8,-67,-72,-43,-55, 76,-57],
+ [-89,-35,-55, 75, 15, -6,-53,-56,-96, 87],
+ [-76, 45, 74, 12,-12,-69,  2, 71, 75,-60],
+ [-50,-88, 93, 68, 10,-13, 84,-21, 65, 14],
+ [-23,-95, 99, 62,-37, 96, 27, 69,-64,-92],
+ [ -5,-57,-30, -6,-96, 75, 25, -6, 96, 77]];
+const FLETCHER_ALPHA = [-2.7910, 2.5623, -1.0429, 0.5097, -2.8096, 1.1883, 2.0771, -2.9926, 0.0715, 0.4142];
+
+// ---- langermann.m constant data ----
+const LANG_A = [
+ [9.681,0.667,4.783,9.095,3.517,9.325,6.544,0.211,5.122,2.020],
+ [9.400,2.041,3.788,7.931,2.882,2.672,3.568,1.284,7.033,7.374],
+ [8.025,9.152,5.114,7.621,4.564,4.711,2.996,6.126,0.734,4.982],
+ [2.196,0.415,5.649,6.979,9.510,9.166,6.304,6.054,9.377,1.426],
+ [8.074,8.777,3.467,1.863,6.708,6.349,4.534,0.276,7.633,1.567],
+ [7.650,5.658,0.720,2.764,3.278,5.283,7.474,6.274,1.409,8.208],
+ [1.256,3.605,8.623,6.905,0.584,8.133,6.071,6.888,4.187,5.448],
+ [8.314,2.261,4.224,1.781,4.124,0.932,8.129,8.658,1.208,5.762],
+ [0.226,8.858,1.420,0.945,1.622,4.698,6.228,9.096,0.972,7.637],
+ [7.305,2.228,1.242,5.928,9.133,1.826,4.060,5.204,8.713,8.247]];
+const LANG_C = [0.806,0.517,1.5,0.908,0.965,0.669,0.524,0.902,0.531,0.876];
+
+// ---- foxholes.m constant data ----
+const FOX_A = [
+ [-32,-16,0,16,32,-32,-16,0,16,32,-32,-16,0,16,32,-32,-16,0,16,32,-32,-16,0,16,32],
+ [-32,-32,-32,-32,-32,-16,-16,-16,-16,-16,0,0,0,0,0,16,16,16,16,16,32,32,32,32,32]];
+
+// ---- shekel a/c, hartman a/c/p, kowalik a/b ----
+const SHEK_A = [[4,4,4,4],[1,1,1,1],[8,8,8,8],[6,6,6,6],[3,7,3,7],
+                [2,9,2,9],[5,5,3,3],[8,1,8,1],[6,2,6,2],[7,3.6,7,3.6]];
+const SHEK_C = [0.1,0.2,0.2,0.4,0.4,0.6,0.3,0.7,0.5,0.5];
+const H3_A = [[3,10,30],[0.1,10,35],[3,10,30],[0.1,10,35]];
+const H3_P = [[0.3689,0.1170,0.2673],[0.4699,0.4387,0.7470],[0.1091,0.8732,0.5547],[0.038150,0.5743,0.8828]];
+const H6_A = [[10,3,17,3.5,1.7,8],[0.05,10,17,0.1,8,14],[3,3.5,1.7,10,17,8],[17,8,0.05,10,0.1,14]];
+const H6_P = [[0.1312,0.1696,0.5569,0.0124,0.8283,0.5886],[0.2329,0.4135,0.8307,0.3736,0.1004,0.9991],
+              [0.2348,0.1415,0.3522,0.2883,0.3047,0.6650],[0.4047,0.8828,0.8732,0.5743,0.1091,0.0381]];
+const H_C = [1,1.2,3,3.2];
+const KOW_A = [0.1957,0.1947,0.1735,0.1600,0.0844,0.0627,0.0456,0.0342,0.0323,0.0235,0.0246];
+const KOW_B = [1/0.25,1/0.5,1/1,1/2,1/4,1/6,1/8,1/10,1/12,1/14,1/16];
+const PS_B = [8,18,44,114];
+
+// generic Hartman / Shekel / Michalewicz builders
+function hartman(A, P, C, X) {
+  return each(X, (x, n) => {
+    let top = 0;
+    for (let k = 0; k < 4; k++) {
+      let t1 = 0;
+      for (let j = 0; j < n; j++) t1 += A[k][j] * Math.pow(x[j] - P[k][j], 2);
+      top += C[k] * Math.exp(-t1);
+    }
+    return -top;
+  });
+}
+function shekel(m, X) {
+  return each(X, (x, n) => {
+    let top = 0;
+    for (let k = 0; k < m; k++) {
+      let t1 = 0;
+      for (let j = 0; j < n; j++) t1 += (x[j] - SHEK_A[k][j]) * (x[j] - SHEK_A[k][j]);
+      t1 += SHEK_C[k];
+      top += 1 / t1;
+    }
+    return -top;
+  });
+}
+function michalewics(m, X) {
+  // [MATLAB] sqr(x)=x*x, so the sine argument is j*x^2/pi with j 1-based.
+  return each(X, (x, n) => {
+    let top = 0;
+    for (let j = 1; j <= n; j++) top += Math.sin(x[j-1]) * Math.pow(Math.sin(j * x[j-1] * x[j-1] / PI), 2 * m);
+    return -top;
+  });
+}
+// penalized.m / penalized2.m u-term. [MATLAB] the elseif (x<=a || x>=-a) is
+// tautological once x<=a, so the third branch is unreachable — preserved as-is.
+function uhesapla(v, a, k, m) {
+  if (v > a) return k * Math.pow(v - a, m);
+  else if (v <= a || v >= -a) return 0;
+  else return k * Math.pow(-v - a, m);
+}
+
+const OBJECTIVES = {
+
+// absolute.m : sum((x+0.5).^2)   [MATLAB] despite the name, no abs() is applied.
+absolute: { f: X => each(X, (x, n) => { let s = 0; for (let i = 0; i < n; i++) s += Math.pow(x[i] + 0.5, 2); return s; }),
+  tex: [String.raw`f(\mathbf{x}) = \sum_{i=1}^{n} \left(x_i + 0.5\right)^2`], note: "absolute.m evaluates sum(abs(x+0.5).^2); the abs() is a no-op on the square." },
+
+// ackley.m : A = 1/Dim, Omega = 2*pi
+ackley: { f: X => each(X, (x, n) => {
+    const A = 1 / n, W = 2 * PI; let s1 = 0, s2 = 0;
+    for (let i = 0; i < n; i++) { s1 += x[i] * x[i]; s2 += Math.cos(W * x[i]); }
+    return -20 * Math.exp(-0.2 * Math.sqrt(A * s1)) - Math.exp(A * s2) + 20 + Math.E;
+  }),
+  tex: [String.raw`f(\mathbf{x}) = -20\exp\!\left(-0.2\sqrt{\frac{1}{n}\sum_{i=1}^{n} x_i^{2}}\right) - \exp\!\left(\frac{1}{n}\sum_{i=1}^{n}\cos(2\pi x_i)\right) + 20 + e`] },
+
+// beale.m : uses x1,x2 only
+beale: { f: X => each(X, x =>
+    Math.pow(1.5 - x[0] * (1 - x[1]), 2) +
+    Math.pow(2.25 - x[0] * (1 - Math.pow(x[1], 2)), 2) +
+    Math.pow(2.625 - x[0] * (1 - Math.pow(x[1], 3)), 2)),
+  tex: [String.raw`f(\mathbf{x}) = \bigl(1.5 - x_1(1 - x_2)\bigr)^2 + \bigl(2.25 - x_1(1 - x_2^{2})\bigr)^2 + \bigl(2.625 - x_1(1 - x_2^{3})\bigr)^2`], note: "fncParams.csv lists D = 5, but beale.m reads only x₁ and x₂." },
+
+bohachecsky1: { f: X => each(X, x =>
+    x[0]*x[0] + 2*x[1]*x[1] - 0.3*Math.cos(3*PI*x[0]) - 0.4*Math.cos(4*PI*x[1]) + 0.7),
+  tex: [String.raw`f(\mathbf{x}) = x_1^{2} + 2x_2^{2} - 0.3\cos(3\pi x_1) - 0.4\cos(4\pi x_2) + 0.7`] },
+
+bohachecsky2: { f: X => each(X, x =>
+    x[0]*x[0] + 2*x[1]*x[1] - 0.3*Math.cos(3*PI*x[0])*Math.cos(4*PI*x[1]) + 0.3),
+  tex: [String.raw`f(\mathbf{x}) = x_1^{2} + 2x_2^{2} - 0.3\cos(3\pi x_1)\cos(4\pi x_2) + 0.3`] },
+
+bohachecsky3: { f: X => each(X, x =>
+    x[0]*x[0] + 2*x[1]*x[1] - 0.3*Math.cos(3*PI*x[0] + 4*PI*x[1]) + 0.3),
+  tex: [String.raw`f(\mathbf{x}) = x_1^{2} + 2x_2^{2} - 0.3\cos(3\pi x_1 + 4\pi x_2) + 0.3`] },
+
+booth: { f: X => each(X, x =>
+    Math.pow(x[0] + 2*x[1] - 7, 2) + Math.pow(2*x[0] + x[1] - 5, 2)),
+  tex: [String.raw`f(\mathbf{x}) = (x_1 + 2x_2 - 7)^2 + (2x_1 + x_2 - 5)^2`] },
+
+branin: { f: X => each(X, x => {
+    const a = x[1] - (5.1/(4*PI*PI))*x[0]*x[0] + (5/PI)*x[0] - 6;
+    return a*a + 10*(1 - 1/(8*PI))*Math.cos(x[0]) + 10;
+  }),
+  tex: [String.raw`f(\mathbf{x}) = \left(x_2 - \frac{5.1}{4\pi^{2}}x_1^{2} + \frac{5}{\pi}x_1 - 6\right)^{2} + 10\left(1 - \frac{1}{8\pi}\right)\cos x_1 + 10`] },
+
+colville: { f: X => each(X, x =>
+    100*Math.pow(x[0]*x[0] - x[1], 2) + Math.pow(x[0]-1, 2) + Math.pow(x[2]-1, 2) +
+    90*Math.pow(x[2]*x[2] - x[3], 2) +
+    10.1*(Math.pow(x[1]-1, 2) + Math.pow(x[3]-1, 2)) + 19.8*(x[1]-1)*(x[3]-1)),
+  tex: [String.raw`\begin{aligned} f(\mathbf{x}) ={}& 100\left(x_1^{2} - x_2\right)^2 + (x_1 - 1)^2 + (x_3 - 1)^2 + 90\left(x_3^{2} - x_4\right)^2 \\ &+ 10.1\left[(x_2 - 1)^2 + (x_4 - 1)^2\right] + 19.8\,(x_2 - 1)(x_4 - 1)\end{aligned}`] },
+
+dixonprice: { f: X => each(X, (x, n) => {
+    let top = 0;
+    for (let j = 2; j <= n; j++) { const t = 2*x[j-1]*x[j-1] - x[j-2]; top += j * t * t; }
+    return top + Math.pow(x[0]-1, 2);
+  }),
+  tex: [String.raw`f(\mathbf{x}) = (x_1 - 1)^2 + \sum_{j=2}^{n} j\left(2x_j^{2} - x_{j-1}\right)^2`] },
+
+// dropwave.m : norm over first two coords only
+dropwave: { f: X => each(X, x => {
+    const r = Math.sqrt(x[0]*x[0] + x[1]*x[1]);
+    return -(1 + Math.cos(12*r)) / (0.5*(x[0]*x[0] + x[1]*x[1]) + 2);
+  }),
+  tex: [String.raw`f(\mathbf{x}) = -\,\frac{1 + \cos\!\left(12\sqrt{x_1^{2} + x_2^{2}}\right)}{\tfrac{1}{2}\left(x_1^{2} + x_2^{2}\right) + 2}`], note: "The norm is taken over the first two coordinates only." },
+
+easom: { f: X => each(X, x =>
+    -Math.cos(x[0])*Math.cos(x[1])*Math.exp(-(Math.pow(x[0]-PI,2) + Math.pow(x[1]-PI,2)))),
+  tex: [String.raw`f(\mathbf{x}) = -\cos x_1 \cos x_2 \,\exp\!\left(-\left[(x_1 - \pi)^2 + (x_2 - \pi)^2\right]\right)`] },
+
+// eggholder.m : out-of-range coordinates are forced to Inf before evaluation
+eggholder: { f: X => each(X, (x0, n) => {
+    const x = new Float64Array(n);
+    for (let i = 0; i < n; i++) x[i] = (x0[i] < -512 || x0[i] > 512) ? Infinity : x0[i];
+    let s = 0;
+    for (let i = 0; i < n - 1; i++) {
+      const X1 = x[i], X2 = x[i+1];
+      s += -(X2 + 47)*Math.sin(Math.sqrt(Math.abs(X2 + X1/2 + 47))) -
+            X1*Math.sin(Math.sqrt(Math.abs(X1 - (X2 + 47))));
+    }
+    return s;
+  }),
+  tex: [String.raw`f(\mathbf{x}) = \sum_{i=1}^{n-1}\left[-(x_{i+1} + 47)\sin\sqrt{\left|x_{i+1} + \tfrac{x_i}{2} + 47\right|} \;-\; x_i\sin\sqrt{\left|x_i - (x_{i+1} + 47)\right|}\right]`], note: "Any coordinate with |xᵢ| > 512 is replaced by Inf before the sum." },
+
+// fletcher.m : Ai = A·sin(α)ᵀ + B·cos(α)ᵀ ; Bi = A·sin(x)ᵀ + B·cos(x)ᵀ
+fletcher: { f: X => each(X, (x, n) => {
+    const A = FLETCHER_A, B = FLETCHER_B, al = FLETCHER_ALPHA, m = Math.min(n, 10);
+    let s = 0;
+    for (let i = 0; i < m; i++) {
+      let Ai = 0, Bi = 0;
+      for (let j = 0; j < m; j++) {
+        Ai += A[i][j]*Math.sin(al[j]) + B[i][j]*Math.cos(al[j]);
+        Bi += A[i][j]*Math.sin(x[j])  + B[i][j]*Math.cos(x[j]);
+      }
+      s += Math.pow(Ai - Bi, 2);
+    }
+    return s;
+  }),
+  tex: [String.raw`A_i = \sum_{j=1}^{n}\left[a_{ij}\sin\alpha_j + b_{ij}\cos\alpha_j\right],\qquad B_i = \sum_{j=1}^{n}\left[a_{ij}\sin x_j + b_{ij}\cos x_j\right]`, String.raw`f(\mathbf{x}) = \sum_{i=1}^{n}\left(A_i - B_i\right)^2`], note: "A, B are fixed integer matrices and α a fixed vector taken from fletcher.m." },
+
+// foxholes.m : Shekel's foxholes, 25 wells, power 6
+foxholes: { f: X => each(X, (x, n) => {
+    let top = 0;
+    for (let k = 0; k < 25; k++) {
+      let t1 = 0;
+      for (let j = 0; j < n; j++) t1 += Math.pow(x[j] - FOX_A[j][k], 6);
+      top += 1 / (t1 + (k + 1));
+    }
+    return 1 / (0.002 + top);
+  }),
+  tex: [String.raw`f(\mathbf{x}) = \left[\,0.002 + \sum_{k=1}^{25}\frac{1}{k + \sum_{j=1}^{n}\left(x_j - a_{jk}\right)^{6}}\right]^{-1}`] },
+
+// giunta.m : out-of-range coordinates forced to Inf
+giunta: { f: X => each(X, (x0, n) => {
+    let s = 0.6;
+    for (let i = 0; i < n; i++) {
+      const v = (x0[i] < -1 || x0[i] > 1) ? Infinity : x0[i];
+      const arg = 16*v/15 - 1;
+      s += Math.sin(arg) + Math.pow(Math.sin(arg), 2) + Math.sin(4*arg)/50;
+    }
+    return s;
+  }),
+  tex: [String.raw`\theta_i = \tfrac{16}{15}x_i - 1`, String.raw`f(\mathbf{x}) = 0.6 + \sum_{i=1}^{n}\left[\sin\theta_i + \sin^{2}\theta_i + \tfrac{1}{50}\sin(4\theta_i)\right]`], note: "Any coordinate outside [−1, 1] is replaced by Inf before evaluation." },
+
+goldsteinprice: { f: X => each(X, x => {
+    const a = x[0], b = x[1];
+    return (1 + Math.pow(a+b+1,2)*(19 - 14*a + 3*a*a - 14*b + 6*a*b + 3*b*b)) *
+           (30 + Math.pow(2*a-3*b,2)*(18 - 32*a + 12*a*a + 48*b - 36*a*b + 27*b*b));
+  }),
+  tex: [String.raw`\begin{aligned} f(\mathbf{x}) ={}& \left[1 + (x_1 + x_2 + 1)^2\left(19 - 14x_1 + 3x_1^{2} - 14x_2 + 6x_1x_2 + 3x_2^{2}\right)\right] \\ &\times \left[30 + (2x_1 - 3x_2)^2\left(18 - 32x_1 + 12x_1^{2} + 48x_2 - 36x_1x_2 + 27x_2^{2}\right)\right]\end{aligned}`] },
+
+griewank: { f: X => each(X, (x, n) => {
+    let s = 0, p = 1;
+    for (let i = 0; i < n; i++) { s += x[i]*x[i]/4000; p *= Math.cos(x[i]/Math.sqrt(i+1)); }
+    return s - p + 1;
+  }),
+  tex: [String.raw`f(\mathbf{x}) = \sum_{i=1}^{n}\frac{x_i^{2}}{4000} - \prod_{i=1}^{n}\cos\!\left(\frac{x_i}{\sqrt{i}}\right) + 1`] },
+
+hartman3: { f: X => hartman(H3_A, H3_P, H_C, X),
+  tex: [String.raw`f(\mathbf{x}) = -\sum_{k=1}^{4} c_k \exp\!\left(-\sum_{j=1}^{n} a_{kj}\left(x_j - p_{kj}\right)^2\right),\qquad n = 3`] },
+
+hartman6: { f: X => hartman(H6_A, H6_P, H_C, X),
+  tex: [String.raw`f(\mathbf{x}) = -\sum_{k=1}^{4} c_k \exp\!\left(-\sum_{j=1}^{n} a_{kj}\left(x_j - p_{kj}\right)^2\right),\qquad n = 6`] },
+
+// himmelblau.m : out-of-range forced to Inf, only x1,x2 read
+himmelblau: { f: X => each(X, x0 => {
+    const x1 = (x0[0] < -5 || x0[0] > 5) ? Infinity : x0[0];
+    const x2 = (x0[1] < -5 || x0[1] > 5) ? Infinity : x0[1];
+    return Math.pow(x1*x1 + x2 - 11, 2) + Math.pow(x1 + x2*x2 - 7, 2);
+  }),
+  tex: [String.raw`f(\mathbf{x}) = \left(x_1^{2} + x_2 - 11\right)^2 + \left(x_1 + x_2^{2} - 7\right)^2`], note: "fncParams.csv lists D = 30, but himmelblau.m reads only the first two columns; values outside [−5, 5] become Inf." },
+
+// hump.m : six-hump camel, shifted by 1.0316285
+hump: { f: X => each(X, x =>
+    1.0316285 + 4*Math.pow(x[0],2) - 2.1*Math.pow(x[0],4) + Math.pow(x[0],6)/3 +
+    x[0]*x[1] - 4*Math.pow(x[1],2) + 4*Math.pow(x[1],4)),
+  tex: [String.raw`f(\mathbf{x}) = 1.0316285 + 4x_1^{2} - 2.1x_1^{4} + \tfrac{1}{3}x_1^{6} + x_1x_2 - 4x_2^{2} + 4x_2^{4}`] },
+
+kowalik: { f: X => each(X, x => {
+    let top = 0;
+    for (let i = 0; i < 11; i++) {
+      const num = x[0]*(KOW_B[i]*KOW_B[i] + KOW_B[i]*x[1]);
+      const den = KOW_B[i]*KOW_B[i] + KOW_B[i]*x[2] + x[3];
+      top += Math.pow(KOW_A[i] - num/den, 2);
+    }
+    return top;
+  }),
+  tex: [String.raw`f(\mathbf{x}) = \sum_{i=1}^{11}\left[a_i - \frac{x_1\left(b_i^{2} + b_i x_2\right)}{b_i^{2} + b_i x_3 + x_4}\right]^{2}`] },
+
+// langermann.m : m = Nvar, uses a(1:m,1:Nvar) and c(1:m)
+langermann: { f: X => each(X, (x, n) => {
+    const m = Math.min(n, 10);
+    let s = 0;
+    for (let k = 0; k < m; k++) {
+      let d = 0;
+      for (let j = 0; j < n; j++) { const t = x[j] - LANG_A[k][j]; d += t*t; }
+      s += Math.exp(-d/PI) * Math.cos(PI*d) * LANG_C[k];
+    }
+    return -s;
+  }),
+  tex: [String.raw`d_k = \sum_{j=1}^{n}\left(x_j - a_{kj}\right)^2`, String.raw`f(\mathbf{x}) = -\sum_{k=1}^{m} c_k \exp\!\left(-\frac{d_k}{\pi}\right)\cos(\pi d_k),\qquad m = n`] },
+
+// levy.m : n is HARD-CODED to 30 inside levy.m
+levy: { f: X => each(X, (x, nv) => {
+    const n = Math.min(30, nv);
+    const z = new Float64Array(n);
+    for (let i = 0; i < n; i++) z[i] = 1 + (x[i] - 1)/4;
+    let s = Math.pow(Math.sin(PI*z[0]), 2);
+    for (let i = 0; i < n - 1; i++)
+      s += Math.pow(z[i]-1, 2) * (1 + 10*Math.pow(Math.sin(PI*z[i] + 1), 2));
+    return s + Math.pow(z[n-1]-1, 2) * (1 + Math.pow(Math.sin(2*PI*z[n-1]), 2));
+  }),
+  tex: [String.raw`z_i = 1 + \frac{x_i - 1}{4}`, String.raw`f(\mathbf{x}) = \sin^{2}(\pi z_1) + \sum_{i=1}^{n-1}(z_i - 1)^2\left[1 + 10\sin^{2}(\pi z_i + 1)\right] + (z_n - 1)^2\left[1 + \sin^{2}(2\pi z_n)\right]`], note: "levy.m hard-codes n = 30, and the sine argument is (πzᵢ + 1), not π(zᵢ + 1)." },
+
+matyas: { f: X => each(X, x => 0.26*(x[0]*x[0] + x[1]*x[1]) - 0.48*x[0]*x[1]),
+  tex: [String.raw`f(\mathbf{x}) = 0.26\left(x_1^{2} + x_2^{2}\right) - 0.48\,x_1x_2`] },
+
+michalewics2:  { f: X => michalewics(2, X),
+  tex: [String.raw`f(\mathbf{x}) = -\sum_{j=1}^{n}\sin x_j\,\sin^{2m}\!\left(\frac{j\,x_j^{2}}{\pi}\right),\qquad m = 2`] },
+michalewics5:  { f: X => michalewics(5, X),
+  tex: [String.raw`f(\mathbf{x}) = -\sum_{j=1}^{n}\sin x_j\,\sin^{2m}\!\left(\frac{j\,x_j^{2}}{\pi}\right),\qquad m = 5`] },
+michalewics10: { f: X => michalewics(10, X),
+  tex: [String.raw`f(\mathbf{x}) = -\sum_{j=1}^{n}\sin x_j\,\sin^{2m}\!\left(\frac{j\,x_j^{2}}{\pi}\right),\qquad m = 10`] },
+
+// penalized.m : a=10, k=100, m=4
+penalized: { f: X => each(X, (x, n) => {
+    const y = new Float64Array(n);
+    for (let i = 0; i < n; i++) y[i] = 1 + 0.25*(x[i] + 1);
+    let top = 0, top1 = 0;
+    for (let j = 0; j < n - 1; j++) {
+      top  += Math.pow(y[j]-1, 2) * (1 + 10*Math.pow(Math.sin(PI*y[j+1]), 2));
+      top1 += uhesapla(x[j], 10, 100, 4);
+    }
+    top1 += uhesapla(x[n-1], 10, 100, 4);
+    return (PI/n)*(10*Math.pow(Math.sin(PI*y[0]), 2) + top + Math.pow(y[n-1]-1, 2)) + top1;
+  }),
+  tex: [String.raw`y_i = 1 + \frac{x_i + 1}{4},\qquad u(x, a, k, m) = \begin{cases} k(x - a)^m & x > a \\ 0 & -a \le x \le a \\ k(-x - a)^m & x < -a \end{cases}`, String.raw`f(\mathbf{x}) = \frac{\pi}{n}\left\{10\sin^{2}(\pi y_1) + \sum_{i=1}^{n-1}(y_i - 1)^2\left[1 + 10\sin^{2}(\pi y_{i+1})\right] + (y_n - 1)^2\right\} + \sum_{i=1}^{n} u(x_i, 10, 100, 4)`], note: "In penalized.m the third branch of u is unreachable (the elseif is tautological), so u = 0 for every x ≤ a." },
+
+// penalized2.m : a=5, k=100, m=4 (uses x, not y, in the body)
+penalized2: { f: X => each(X, (x, n) => {
+    let top = 0, top1 = 0;
+    for (let j = 0; j < n - 1; j++) {
+      top  += Math.pow(x[j]-1, 2) * (1 + Math.pow(Math.sin(3*PI*x[j+1]), 2));
+      top1 += uhesapla(x[j], 5, 100, 4);
+    }
+    top1 += uhesapla(x[n-1], 5, 100, 4);
+    return 0.1*(Math.pow(Math.sin(3*PI*x[0]), 2) + top +
+           Math.pow(x[n-1]-1, 2)*(1 + Math.pow(Math.sin(2*PI*x[n-1]), 2))) + top1;
+  }),
+  tex: [String.raw`u(x, a, k, m) = \begin{cases} k(x - a)^m & x > a \\ 0 & -a \le x \le a \\ k(-x - a)^m & x < -a \end{cases}`, String.raw`f(\mathbf{x}) = 0.1\left\{\sin^{2}(3\pi x_1) + \sum_{i=1}^{n-1}(x_i - 1)^2\left[1 + \sin^{2}(3\pi x_{i+1})\right] + (x_n - 1)^2\left[1 + \sin^{2}(2\pi x_n)\right]\right\} + \sum_{i=1}^{n} u(x_i, 5, 100, 4)`], note: "Same u-term quirk as penalized.m: the x < −a branch is unreachable." },
+
+// perm.m : b = 0.5
+perm: { f: X => each(X, (x, n) => {
+    let top = 0;
+    for (let k = 1; k <= n; k++) {
+      let t1 = 0;
+      for (let j = 1; j <= n; j++) t1 += (Math.pow(j, k) + 0.5) * (Math.pow(x[j-1]/j, k) - 1);
+      top += t1*t1;
+    }
+    return top;
+  }),
+  tex: [String.raw`f(\mathbf{x}) = \sum_{k=1}^{n}\left[\sum_{j=1}^{n}\left(j^{k} + \beta\right)\left(\left(\frac{x_j}{j}\right)^{k} - 1\right)\right]^{2},\qquad \beta = 0.5`] },
+
+// powell.m : stride-4 grouping, third term (x2-x3)^4
+powell: { f: X => each(X, (x, n) => {
+    const limit = Math.floor(n/4)*4;
+    let s = 0;
+    for (let i = 0; i < limit; i += 4) {
+      const a = x[i], b = x[i+1], c = x[i+2], d = x[i+3];
+      s += Math.pow(a + 10*b, 2) + 5*Math.pow(c - d, 2) + Math.pow(b - c, 4) + 10*Math.pow(a - d, 4);
+    }
+    return s;
+  }),
+  tex: [String.raw`f(\mathbf{x}) = \sum_{g=1}^{\lfloor n/4\rfloor}\left[\left(x_{4g-3} + 10x_{4g-2}\right)^2 + 5\left(x_{4g-1} - x_{4g}\right)^2 + \left(x_{4g-2} - x_{4g-1}\right)^4 + 10\left(x_{4g-3} - x_{4g}\right)^4\right]`], note: "powell.m uses (x₂ − x₃)⁴, not the textbook (x₂ − 2x₃)⁴." },
+
+// powersum.m : b = [8 18 44 114]
+powersum: { f: X => each(X, (x, n) => {
+    let top = 0;
+    for (let k = 1; k <= n; k++) {
+      let t1 = 0;
+      for (let j = 0; j < n; j++) t1 += Math.pow(x[j], k);
+      top += Math.pow(t1 - PS_B[k-1], 2);
+    }
+    return top;
+  }),
+  tex: [String.raw`f(\mathbf{x}) = \sum_{k=1}^{n}\left(\sum_{j=1}^{n} x_j^{k} - b_k\right)^{2},\qquad \mathbf{b} = (8,\ 18,\ 44,\ 114)`] },
+
+// quartic.m : one rand() per individual (noisy)
+quartic: { f: X => each(X, (x, n) => {
+    let top = 0;
+    for (let j = 1; j <= n; j++) top += j * Math.pow(x[j-1], 4);
+    return top + RNG();
+  }),
+  tex: [String.raw`f(\mathbf{x}) = \sum_{j=1}^{n} j\,x_j^{4} + \xi,\qquad \xi \sim \mathcal{U}(0, 1)`], note: "Stochastic: one uniform draw per individual, so the same point can score differently each call." },
+
+rastrigin: { f: X => each(X, (x, n) => {
+    let s = 10*n;
+    for (let i = 0; i < n; i++) s += x[i]*x[i] - 10*Math.cos(2*PI*x[i]);
+    return s;
+  }),
+  tex: [String.raw`f(\mathbf{x}) = 10n + \sum_{i=1}^{n}\left[x_i^{2} - 10\cos(2\pi x_i)\right]`] },
+
+rosenbrock: { f: X => each(X, (x, n) => {
+    let s = 0;
+    for (let i = 0; i < n - 1; i++) s += 100*Math.pow(x[i+1] - x[i]*x[i], 2) + Math.pow(1 - x[i], 2);
+    return s;
+  }),
+  tex: [String.raw`f(\mathbf{x}) = \sum_{i=1}^{n-1}\left[100\left(x_{i+1} - x_i^{2}\right)^2 + (1 - x_i)^2\right]`] },
+
+schaffer: { f: X => each(X, x => {
+    const a = x[0]*x[0], b = x[1]*x[1];
+    const num = Math.pow(Math.sin(Math.sqrt(a + b)), 2) - 0.5;
+    const den = Math.pow(1 + 0.001*(a + b), 2);
+    return 0.5 + num/den;
+  }),
+  tex: [String.raw`f(\mathbf{x}) = 0.5 + \frac{\sin^{2}\!\left(\sqrt{x_1^{2} + x_2^{2}}\right) - 0.5}{\left[1 + 0.001\left(x_1^{2} + x_2^{2}\right)\right]^{2}}`] },
+
+// schwefel.m : NO 418.9829n offset in the reference file
+schwefel: { f: X => each(X, (x, n) => {
+    let s = 0;
+    for (let i = 0; i < n; i++) s += -x[i]*Math.sin(Math.sqrt(Math.abs(x[i])));
+    return s;
+  }),
+  tex: [String.raw`f(\mathbf{x}) = -\sum_{i=1}^{n} x_i \sin\!\left(\sqrt{|x_i|}\right)`], note: "schwefel.m omits the usual 418.9829·n offset, so the global optimum is ≈ −418.9829·n." },
+
+schwefel_1_2: { f: X => each(X, (x, n) => {
+    let c = 0, s = 0;
+    for (let i = 0; i < n; i++) { c += x[i]; s += c*c; }
+    return s;
+  }),
+  tex: [String.raw`f(\mathbf{x}) = \sum_{i=1}^{n}\left(\sum_{j=1}^{i} x_j\right)^{2}`] },
+
+// schwefel_2_22.m : squares, not absolute values
+schwefel_2_22: { f: X => each(X, (x, n) => {
+    let s = 0, p = 1;
+    for (let i = 0; i < n; i++) { s += x[i]*x[i]; p *= x[i]*x[i]; }
+    return s + p;
+  }),
+  tex: [String.raw`f(\mathbf{x}) = \sum_{i=1}^{n} x_i^{2} + \prod_{i=1}^{n} x_i^{2}`], note: "The reference uses x.*x in both terms rather than |x| as in the classical definition." },
+
+shekel5:  { f: X => shekel(5, X),
+  tex: [String.raw`f(\mathbf{x}) = -\sum_{k=1}^{5}\left[\sum_{j=1}^{n}\left(x_j - a_{kj}\right)^2 + c_k\right]^{-1}`] },
+shekel7:  { f: X => shekel(7, X),
+  tex: [String.raw`f(\mathbf{x}) = -\sum_{k=1}^{7}\left[\sum_{j=1}^{n}\left(x_j - a_{kj}\right)^2 + c_k\right]^{-1}`] },
+shekel10: { f: X => shekel(10, X),
+  tex: [String.raw`f(\mathbf{x}) = -\sum_{k=1}^{10}\left[\sum_{j=1}^{n}\left(x_j - a_{kj}\right)^2 + c_k\right]^{-1}`] },
+
+shubert: { f: X => each(X, x => {
+    let a = 0, b = 0;
+    for (let j = 1; j <= 5; j++) {
+      a += j*Math.cos((j+1)*x[0] + j);
+      b += j*Math.cos((j+1)*x[1] + j);
+    }
+    return a*b;
+  }),
+  tex: [String.raw`f(\mathbf{x}) = \left[\sum_{j=1}^{5} j\cos\bigl((j+1)x_1 + j\bigr)\right]\left[\sum_{j=1}^{5} j\cos\bigl((j+1)x_2 + j\bigr)\right]`] },
+
+sixhumpcamelback: { f: X => each(X, x =>
+    (4 - 2.1*Math.pow(x[0],2) + Math.pow(x[0],4)/3)*Math.pow(x[0],2) +
+    x[0]*x[1] + (-4 + 4*Math.pow(x[1],2))*Math.pow(x[1],2)),
+  tex: [String.raw`f(\mathbf{x}) = \left(4 - 2.1x_1^{2} + \tfrac{1}{3}x_1^{4}\right)x_1^{2} + x_1x_2 + \left(-4 + 4x_2^{2}\right)x_2^{2}`] },
+
+solomon: { f: X => each(X, (x, n) => {
+    const r = norm2(x, n);
+    return -Math.cos(2*PI*r) + 0.1*r + 1;
+  }),
+  tex: [String.raw`f(\mathbf{x}) = -\cos\!\left(2\pi\lVert\mathbf{x}\rVert\right) + 0.1\lVert\mathbf{x}\rVert + 1`] },
+
+sphere2: { f: X => each(X, (x, n) => { let s = 0; for (let i = 0; i < n; i++) s += x[i]*x[i]; return s; }),
+  tex: [String.raw`f(\mathbf{x}) = \sum_{i=1}^{n} x_i^{2}`] },
+
+// step2.m : ceil(x+0.5) then sum of squares
+step2: { f: X => each(X, (x, n) => {
+    let s = 0;
+    for (let i = 0; i < n; i++) { const v = Math.ceil(x[i] + 0.5); s += v*v; }
+    return s;
+  }),
+  tex: [String.raw`f(\mathbf{x}) = \sum_{i=1}^{n}\left\lceil x_i + 0.5\right\rceil^{2}`] },
+
+stepint: { f: X => each(X, (x, n) => {
+    let s = 25;
+    for (let i = 0; i < n; i++) s += Math.ceil(x[i]);
+    return s;
+  }),
+  tex: [String.raw`f(\mathbf{x}) = 25 + \sum_{i=1}^{n}\left\lceil x_i\right\rceil`] },
+
+sumsquares: { f: X => each(X, (x, n) => {
+    let s = 0;
+    for (let j = 1; j <= n; j++) s += j*x[j-1]*x[j-1];
+    return s;
+  }),
+  tex: [String.raw`f(\mathbf{x}) = \sum_{j=1}^{n} j\,x_j^{2}`] },
+
+trid: { f: X => each(X, (x, n) => {
+    let t1 = 0, t = 0;
+    for (let j = 1; j < n; j++) { t1 += Math.pow(x[j]-1, 2); t += x[j]*x[j-1]; }
+    t1 += Math.pow(x[0]-1, 2);
+    return t1 - t;
+  }),
+  tex: [String.raw`f(\mathbf{x}) = \sum_{i=1}^{n}(x_i - 1)^2 - \sum_{i=2}^{n} x_i\,x_{i-1}`] },
+
+// weierstrass.m : k = 0..20, a = 0.5, b = 3
+weierstrass: { f: X => {
+    const kmax = 20;
+    const ak = new Float64Array(kmax+1), bk = new Float64Array(kmax+1);
+    let temp = 0;
+    for (let k = 0; k <= kmax; k++) {
+      ak[k] = Math.pow(0.5, k);
+      bk[k] = 2*PI*Math.pow(3, k);
+      temp += ak[k]*Math.cos(bk[k]*0.5);
+    }
+    return each(X, (x, n) => {
+      let val = 0;
+      for (let i = 0; i < n; i++)
+        for (let k = 0; k <= kmax; k++) val += ak[k]*Math.cos(bk[k]*(x[i] + 0.5));
+      return val - n*temp;
+    });
+  },
+  tex: [String.raw`f(\mathbf{x}) = \sum_{i=1}^{n}\sum_{k=0}^{k_{\max}} a^{k}\cos\!\left(2\pi b^{k}(x_i + 0.5)\right) - n\sum_{k=0}^{k_{\max}} a^{k}\cos\!\left(\pi b^{k}\right),\qquad a = 0.5,\ b = 3,\ k_{\max} = 20`] },
+
+// whitley.m : full n×n double sum
+whitley: { f: X => each(X, (x, n) => {
+    let s = 0;
+    for (let i = 0; i < n; i++) {
+      const xi2 = x[i]*x[i];
+      for (let j = 0; j < n; j++) {
+        const R = 100*Math.pow(xi2 - x[j], 2) + Math.pow(1 - x[j], 2);
+        s += (R*R)/4000 - Math.cos(R) + 1;
+      }
+    }
+    return s;
+  }),
+  tex: [String.raw`R_{ij} = 100\left(x_i^{2} - x_j\right)^2 + (1 - x_j)^2`, String.raw`f(\mathbf{x}) = \sum_{i=1}^{n}\sum_{j=1}^{n}\left[\frac{R_{ij}^{2}}{4000} - \cos R_{ij} + 1\right]`] },
+
+// zakharov.m : the MATLAB loop starts at j = 2, so x1 is excluded from both sums
+zakharov: { f: X => each(X, (x, n) => {
+    let t1 = 0, t = 0;
+    for (let j = 2; j <= n; j++) { t1 += x[j-1]*x[j-1]; t += 0.5*j*x[j-1]; }
+    return t1 + t*t + Math.pow(t, 4);
+  }),
+  tex: [String.raw`f(\mathbf{x}) = \sum_{j=2}^{n} x_j^{2} + \left(\sum_{j=2}^{n} 0.5\,j\,x_j\right)^{2} + \left(\sum_{j=2}^{n} 0.5\,j\,x_j\right)^{4}`], note: "zakharov.m loops j = 2…n, so x₁ is excluded from every sum — preserved for parity." }
+};
+
+/* ============================================================
+   eBee sub-functions — mirrors the local functions in eBee.m
+   ============================================================ */
+function levyFlight(N, ndim, beta) {
+  const num = gammaFn(1 + beta) * Math.sin(PI * beta / 2);
+  const den = gammaFn((1 + beta) / 2) * beta * Math.pow(2, (beta - 1) / 2);
+  const sigmaU = Math.pow(num / den, 1 / beta);
+  const L = zeros(N, ndim);
+  for (let i = 0; i < N; i++)
+    for (let j = 0; j < ndim; j++) {
+      const U = sigmaU * randn(), V = randn();
+      L[i][j] = U / Math.pow(Math.abs(V), 1 / beta);
+    }
+  // k = [ones(1,ceil(0.10*N)) 3*rand(1,ceil(0.90*N))]; k = k(randperm(N))'
+  const k = [];
+  for (let i = 0, m = Math.ceil(0.10 * N); i < m; i++) k.push(1);
+  for (let i = 0, m = Math.ceil(0.90 * N); i < m; i++) k.push(3 * RNG());
+  const order = randperm(N);                    // MATLAB indexes k with randperm(N)
+  for (let i = 0; i < N; i++) {
+    const e = k[order[i] - 1];
+    for (let j = 0; j < ndim; j++)
+      L[i][j] = Math.sign(L[i][j]) * Math.pow(Math.abs(L[i][j]), e);
+  }
+  return L;
+}
+function generateMask(A, B) {
+  const M = zeros(A, B);
+  const k = Math.abs(randiScalar(0, 1) - Math.pow(RNG(), randiScalar(2, 10)));
+  const h = Math.ceil(k * B);
+  for (let i = 0; i < A; i++) {
+    const v = randperm(B);
+    for (let t = 0; t < h; t++) M[i][v[t] - 1] = 1;
+  }
+  return M;
+}
+function generateMS(nnectar, nDim, T) {
+  const M = generateMask(nnectar, nDim);
+  const c = RNG() <= T ? 1 : nDim;
+  const beta = 1.10 + RNG() * 0.90;
+  return { M, scale: levyFlight(nnectar, c, beta), c };
+}
+function selectByProbability(x, N) {
+  const eps = 2.220446049250313e-16;
+  let mn = Infinity;
+  for (const v of x) if (v < mn) mn = v;
+  const f = x.map(v => Math.pow(Math.abs(v + mn + eps), 5));
+  let tot = 0; for (const v of f) tot += v;
+  if (!isFinite(tot) || tot === 0) tot = eps;
+  const p = f.map(v => v / tot);
+  const ind = new Array(N);
+  for (let i = 0; i < N; i++) {
+    const target = Math.pow(RNG(), randiScalar(5, 10));
+    let bi = 0, bd = Infinity;
+    for (let j = 0; j < p.length; j++) {
+      const d = Math.abs(p[j] - target);
+      if (d < bd) { bd = d; bi = j; }
+    }
+    ind[i] = bi + 1;
+  }
+  return ind;
+}
+
+/* ============================================================
+   eBee optimiser — out = eBee(ObjFnc, userdata, N, D, lb, ub, MaxCycle, CSize)
+   ============================================================ */
+class EBee {
+  constructor(fncName, userdata, N, D, lb, ub, MaxCycle, CSize, seed, MaxFE) {
+    const entry = OBJECTIVES[fncName];
+    if (!entry) throw new Error("Objective not implemented: " + fncName);
+    this.name = fncName;
+    this.f = entry.f;
+    this.userdata = userdata;
+    this.N = N; this.D = D; this.lb = lb; this.ub = ub;
+    this.MaxCycle = MaxCycle;
+    this.MaxFE = (MaxFE > 0) ? MaxFE : 1000000;          // priority stopping condition
+    this.seed = (seed >>> 0);
+    this.rng = makeRNG(this.seed);
+
+    this.CSize = Math.max(1, Math.round(CSize || 2));   // integer, >= 1
+    this.evals = 0;
+    this.iteration = 0;
+    this.history = [];
+    this.scaleMode = null;
+    this.phase = { emp: false, onl: false, sct: false };
+
+    RNG = this.rng;
+    this.Meadow = randMatrix(this.CSize * N, D, lb, ub);
+    this.fitMeadow = this.evaluate(this.Meadow);
+
+    let bi = 0;
+    for (let i = 1; i < this.fitMeadow.length; i++)
+      if (this.fitMeadow[i] < this.fitMeadow[bi]) bi = i;
+    this.gBest = Array.from(this.Meadow[bi]);
+    this.gBestVal = this.fitMeadow[bi];
+
+    this.wildflowers = randMatrix(N, D, lb, ub);
+    this.J = randperm(this.CSize * N, N);
+  }
+
+  evaluate(X) { RNG = this.rng; this.evals += X.length; return this.f(X); }
+
+  // Priority stop: max function evaluations; secondary: max cycles
+  get done() { return this.evals >= this.MaxFE || this.iteration >= this.MaxCycle; }
+
+  update(X, fitX, Y) {                       // function [X,fitX] = Update(...)
+    for (const r of Y)
+      for (let j = 0; j < r.length; j++) r[j] = Math.max(this.lb, Math.min(this.ub, r[j]));
+    const fitY = this.evaluate(Y);
+    for (let i = 0; i < X.length; i++)
+      if (fitY[i] < fitX[i]) { X[i] = Y[i]; fitX[i] = fitY[i]; }
+  }
+
+  derangement(n) {                            // while 1, j=randperm(N); if sum(j==1:N)==0, break
+    for (;;) {
+      const j = randperm(n);
+      let fixed = false;
+      for (let i = 0; i < n; i++) if (j[i] === i + 1) { fixed = true; break; }
+      if (!fixed) return j;
+    }
+  }
+
+  step() {
+    RNG = this.rng;
+    const N = this.N, D = this.D;
+    const FlowerField = this.J.map(i => Float64Array.from(this.Meadow[i - 1]));
+    const fitFlowers  = this.J.map(i => this.fitMeadow[i - 1]);
+    const Flowers0    = FlowerField.map(r => Float64Array.from(r));
+    const fitFlowers0 = fitFlowers.slice();
+
+    /* ---- Direction-Search (employed bees), T = 0.10 ---- */
+    this.phase.emp = true;
+    const j = this.derangement(N);
+    let { M, scale, c } = generateMS(N, D, 0.10);
+    let dx = zeros(N, D);
+
+    if (RNG() < 0.50) {
+      for (let i = 0; i < N; i++)
+        for (let d = 0; d < D; d++) dx[i][d] = FlowerField[j[i] - 1][d] - FlowerField[i][d];
+    } else {
+      const j1 = new Array(N), j2 = new Array(N);
+      for (let i = 0; i < N; i++) {
+        let a = 1 + Math.floor(RNG() * (N - 1));
+        if (a >= i + 1) a += 1;
+        let b = 1 + Math.floor(RNG() * (N - 2));
+        const lo = Math.min(i + 1, a), hi = Math.max(i + 1, a);
+        if (b >= lo) b += 1;
+        if (b >= hi) b += 1;
+        j1[i] = a; j2[i] = b;
+      }
+      const useBest = !(RNG() < 0.50);   // if rand<0.5 -> hField = FlowerField
+      for (let i = 0; i < N; i++) {
+        let w1 = RNG(), w2 = RNG();
+        if (w1 + w2 > 1) { w1 = 1 - w1; w2 = 1 - w2; }
+        for (let d = 0; d < D; d++) {
+          const h = useBest ? this.gBest[d] : FlowerField[i][d];
+          dx[i][d] = w1 * (FlowerField[j1[i] - 1][d] - h) + w2 * (FlowerField[j2[i] - 1][d] - h);
+        }
+      }
+    }
+    let cand = zeros(N, D);
+    for (let i = 0; i < N; i++)
+      for (let d = 0; d < D; d++)
+        cand[i][d] = FlowerField[i][d] + M[i][d] * scale[i][c === 1 ? 0 : d] * dx[i][d];
+    this.update(FlowerField, fitFlowers, cand);
+
+    /* ---- Area-Search (onlooker bees), T = 0.90 ---- */
+    this.phase.onl = true;
+    const j0 = this.derangement(N);
+    let j1p;
+    for (;;) {
+      j1p = randperm(N);
+      let clash = false;
+      for (let i = 0; i < N; i++) if (j1p[i] === j0[i]) { clash = true; break; }
+      if (!clash) break;
+    }
+    ({ M, scale, c } = generateMS(N, D, 0.90));
+    const ind = selectByProbability(fitFlowers0, Math.ceil(N / 2));
+    const indFlowers = randi(ind.length, N).map(t => ind[t - 1]);
+    if (RNG() < RNG()) j1p = indFlowers;
+
+    cand = zeros(N, D);
+    for (let i = 0; i < N; i++)
+      for (let d = 0; d < D; d++) {
+        const dxi = Flowers0[j1p[i] - 1][d] - FlowerField[j0[i] - 1][d];
+        cand[i][d] = FlowerField[i][d] + M[i][d] * scale[i][c === 1 ? 0 : d] * dxi;
+      }
+    const nectar1 = Flowers0.map(r => Float64Array.from(r));
+    const fitNectar1 = fitFlowers0.slice();
+    this.update(nectar1, fitNectar1, cand);
+    for (let i = 0; i < N; i++)
+      if (fitNectar1[i] < fitFlowers[i]) {
+        FlowerField[i] = Float64Array.from(nectar1[i]);
+        fitFlowers[i] = fitNectar1[i];
+      }
+
+    /* ---- Random-Search (scout bees), p = 0.10 ---- */
+    this.phase.sct = false;
+    if (RNG() < 0.10) {
+      this.phase.sct = true;
+      ({ M, scale, c } = generateMS(N, D, 0.90));
+      cand = zeros(N, D);
+      for (let i = 0; i < N; i++)
+        for (let d = 0; d < D; d++) {
+          const dxi = this.wildflowers[i][d] - FlowerField[i][d];
+          cand[i][d] = FlowerField[i][d] + M[i][d] * scale[i][c === 1 ? 0 : d] * dxi;
+        }
+      this.update(FlowerField, fitFlowers, cand);
+    }
+
+    /* ---- Global Update #1 ---- */
+    for (let i = 0; i < N; i++) {
+      this.Meadow[this.J[i] - 1] = FlowerField[i];
+      this.fitMeadow[this.J[i] - 1] = fitFlowers[i];
+    }
+    if (RNG() < 0.50) this.J = randperm(this.CSize * N, N);
+
+    /* ---- Global Update for gBest / gBestVal ---- */
+    let bi = 0;
+    for (let i = 1; i < this.fitMeadow.length; i++)
+      if (this.fitMeadow[i] < this.fitMeadow[bi]) bi = i;
+    if (this.fitMeadow[bi] < this.gBestVal) {
+      this.gBestVal = this.fitMeadow[bi];
+      this.gBest = Array.from(this.Meadow[bi]);
+    }
+
+    this.iteration++;
+    this.history.push(this.gBestVal);
+    if (this.iteration % 100 === 0) this.wildflowers = randMatrix(N, D, this.lb, this.ub);
+  }
+
+  get out() { return { gbest: this.gBest, gval: this.gBestVal }; }
+}
+
+/* ============================================================
+   ABC_PureCode — MATLABv1_ABC-main (runABC.m, GreedySelection.m, calculateFitness.m)
+   Birebir Karaboğa (2005/2008) ABC algoritması, hiçbir değişiklik yapılmadan:
+   out = ABC_PureCode(ObjFnc, userdata, N, D, lb, ub, MaxCycle, ABCOpts, seed)
+   - eBee çözümlerinden HİÇBİR ŞEKİLDE yararlanmaz.
+   - Sadece aynı `seed` numarası ile kendi izole PRNG'sini (`this.rng = makeRNG(seed)`)
+     kullanarak başlangıç `Colony` ve `Employed` matrislerini oluşturur.
+   ============================================================ */
+function calculateFitness(fObjV) {
+  const fFitness = new Float64Array(fObjV.length);
+  for (let i = 0; i < fObjV.length; i++) {
+    const v = fObjV[i];
+    fFitness[i] = (v >= 0) ? (1 / (v + 1)) : (1 + Math.abs(v));
+  }
+  return fFitness;
+}
+
+function GreedySelection(Colony1, Colony2, ObjEmp, ObjEmp2, FitEmp, FitEmp2, fbas, ABCOpts, i) {
+  const oBas = Float64Array.from(fbas);
+  const Obj = ObjEmp.slice();
+  const Fit = Float64Array.from(FitEmp);
+  const Colony = Colony1.map(r => Float64Array.from(r));
+
+  if (i === undefined) {
+    // nargin == 8
+    for (let ind = 0; ind < Colony1.length; ind++) {
+      if (FitEmp2[ind] > FitEmp[ind]) {
+        oBas[ind] = 0;
+        Fit[ind] = FitEmp2[ind];
+        Obj[ind] = ObjEmp2[ind];
+        Colony[ind] = Float64Array.from(Colony2[ind]);
+      } else {
+        oBas[ind] = fbas[ind] + 1;
+        Fit[ind] = FitEmp[ind];
+        Obj[ind] = ObjEmp[ind];
+        Colony[ind] = Float64Array.from(Colony1[ind]);
+      }
+    }
+  } else {
+    // nargin == 9
+    const ind = i;
+    if (FitEmp2[ind] > FitEmp[ind]) {
+      oBas[ind] = 0;
+      Fit[ind] = FitEmp2[ind];
+      Obj[ind] = ObjEmp2[ind];
+      Colony[ind] = Float64Array.from(Colony2[ind]);
+    } else {
+      oBas[ind] = fbas[ind] + 1;
+      Fit[ind] = FitEmp[ind];
+      Obj[ind] = ObjEmp[ind];
+      Colony[ind] = Float64Array.from(Colony1[ind]);
+    }
+  }
+  return { Colony, Obj, Fit, oBas };
+}
+
+class ABC_PureCode {
+  constructor(fncName, userdata, N, D, lb, ub, MaxCycle, abcOpts, seed) {
+    const entry = OBJECTIVES[fncName];
+    if (!entry) throw new Error("Objective not implemented: " + fncName);
+    this.name = fncName;
+    this.f = entry.f;
+    this.userdata = userdata;
+
+    // ABCOpts struct (runABC.m)
+    const colonySize = Math.max(4, Math.floor((abcOpts && abcOpts.ColonySize) ? abcOpts.ColonySize : 2 * N));
+    this.ABCOpts = {
+      ColonySize: colonySize % 2 === 0 ? colonySize : colonySize + 1,
+      MaxCycles: (abcOpts && abcOpts.MaxCycles) ? abcOpts.MaxCycles : MaxCycle,
+      ErrGoal: (abcOpts && abcOpts.ErrGoal !== undefined) ? abcOpts.ErrGoal : 1e-20,
+      MaxFE: (abcOpts && abcOpts.MaxFE > 0) ? abcOpts.MaxFE : 1000000,   // priority stopping condition
+      Dim: D,
+      Limit: (abcOpts && abcOpts.Limit !== undefined) ? abcOpts.Limit : 100,
+      lb: lb,
+      ub: ub,
+      ObjFun: fncName
+    };
+
+    this.N = Math.floor(this.ABCOpts.ColonySize / 2); // Employed count = ColonySize / 2
+    this.D = this.ABCOpts.Dim;
+    this.lb = this.ABCOpts.lb;
+    this.ub = this.ABCOpts.ub;
+    this.MaxCycle = this.ABCOpts.MaxCycles;
+
+    // Sadece seed numarasını kullanan tamamen izole PRNG
+    this.seed = (seed >>> 0);
+    this.rng = makeRNG(this.seed);
+
+    this.evals = 0;
+    this.iteration = 0;
+    this.history = [];
+
+    // Initialise population (runABC.m):
+    // Colony = rand(ABCOpts.ColonySize, ABCOpts.Dim) .* Range + Lower;
+    // Employed = Colony(1:(ABCOpts.ColonySize/2), :);
+    const Colony = new Array(this.ABCOpts.ColonySize);
+    for (let i = 0; i < this.ABCOpts.ColonySize; i++) {
+      const row = new Float64Array(this.D);
+      for (let j = 0; j < this.D; j++) {
+        row[j] = this.lb + (this.ub - this.lb) * this.rng();
+      }
+      Colony[i] = row;
+    }
+    this.Employed = Colony.slice(0, this.N);
+
+    // evaluate and calculate fitness
+    this.ObjEmp = this.evaluate(this.Employed);
+    this.FitEmp = calculateFitness(this.ObjEmp);
+
+    // set initial values of Bas
+    this.Bas = new Float64Array(this.N);
+
+    // GlobalMin = ObjEmp(find(ObjEmp==min(ObjEmp),end));
+    let minVal = Infinity;
+    for (let i = 0; i < this.N; i++) if (this.ObjEmp[i] < minVal) minVal = this.ObjEmp[i];
+    let bestIdx = 0;
+    for (let i = 0; i < this.N; i++) if (this.ObjEmp[i] === minVal) bestIdx = i;
+    this.GlobalMin = this.ObjEmp[bestIdx];
+    this.GlobalParams = Array.from(this.Employed[bestIdx]);
+  }
+
+  evaluate(X) {
+    RNG = this.rng;
+    this.evals += X.length;
+    return this.f(X);
+  }
+
+  get MaxFE() { return this.ABCOpts.MaxFE; }
+  set MaxFE(v) { this.ABCOpts.MaxFE = v; }
+
+  // Priority stop: max function evaluations; secondary: max cycles
+  get done() { return this.evals >= this.ABCOpts.MaxFE || this.iteration >= this.MaxCycle; }
+
+  step() {
+    if (this.done) return;
+    const rng = this.rng;
+    const half = this.N; // ABCOpts.ColonySize / 2
+    const Dim = this.ABCOpts.Dim;
+    const lb = this.ABCOpts.lb;
+    const ub = this.ABCOpts.ub;
+
+    /* %%%%% Employed phase (runABC.m) */
+    let Employed2 = this.Employed.map(r => Float64Array.from(r));
+    for (let i = 0; i < half; i++) {
+      const Param2Change = Math.floor(rng() * Dim);
+      let neighbour = Math.floor(rng() * half);
+      while (neighbour === i) {
+        neighbour = Math.floor(rng() * half);
+      }
+      Employed2[i][Param2Change] = this.Employed[i][Param2Change] +
+        (this.Employed[i][Param2Change] - this.Employed[neighbour][Param2Change]) * (rng() - 0.5) * 2;
+      if (Employed2[i][Param2Change] < lb) Employed2[i][Param2Change] = lb;
+      if (Employed2[i][Param2Change] > ub) Employed2[i][Param2Change] = ub;
+    }
+
+    let ObjEmp2 = this.evaluate(Employed2);
+    let FitEmp2 = calculateFitness(ObjEmp2);
+    let sel = GreedySelection(this.Employed, Employed2, this.ObjEmp, ObjEmp2, this.FitEmp, FitEmp2, this.Bas, this.ABCOpts);
+    this.Employed = sel.Colony;
+    this.ObjEmp = sel.Obj;
+    this.FitEmp = sel.Fit;
+    this.Bas = sel.oBas;
+
+    /* %Normalize: NormFit = FitEmp / sum(FitEmp); */
+    let sumFit = 0;
+    for (let i = 0; i < half; i++) sumFit += this.FitEmp[i];
+    const NormFit = new Float64Array(half);
+    for (let i = 0; i < half; i++) NormFit[i] = sumFit > 0 ? (this.FitEmp[i] / sumFit) : (1 / half);
+
+    /* %%% Onlooker phase (runABC.m) */
+    Employed2 = this.Employed.map(r => Float64Array.from(r));
+    let i = 0;
+    let t = 0;
+    while (t < half) {
+      if (rng() < NormFit[i]) {
+        t = t + 1;
+        const Param2Change = Math.floor(rng() * Dim);
+        let neighbour = Math.floor(rng() * half);
+        while (neighbour === i) {
+          neighbour = Math.floor(rng() * half);
+        }
+        Employed2[i] = Float64Array.from(this.Employed[i]);
+        Employed2[i][Param2Change] = this.Employed[i][Param2Change] +
+          (this.Employed[i][Param2Change] - this.Employed[neighbour][Param2Change]) * (rng() - 0.5) * 2;
+        if (Employed2[i][Param2Change] < lb) Employed2[i][Param2Change] = lb;
+        if (Employed2[i][Param2Change] > ub) Employed2[i][Param2Change] = ub;
+
+        ObjEmp2 = this.evaluate(Employed2);
+        FitEmp2 = calculateFitness(ObjEmp2);
+        sel = GreedySelection(this.Employed, Employed2, this.ObjEmp, ObjEmp2, this.FitEmp, FitEmp2, this.Bas, this.ABCOpts, i);
+        this.Employed = sel.Colony;
+        this.ObjEmp = sel.Obj;
+        this.FitEmp = sel.Fit;
+        this.Bas = sel.oBas;
+      }
+      i = i + 1;
+      if (i === half) i = 0;
+    }
+
+    /* %%% Memorize Best (runABC.m) */
+    let maxFit = -Infinity;
+    for (let k = 0; k < half; k++) if (this.FitEmp[k] > maxFit) maxFit = this.FitEmp[k];
+    let CycleBestIndex = 0;
+    for (let k = 0; k < half; k++) if (this.FitEmp[k] === maxFit) CycleBestIndex = k;
+    const CycleBestParams = Array.from(this.Employed[CycleBestIndex]);
+    const CycleMin = this.ObjEmp[CycleBestIndex];
+
+    if (CycleMin < this.GlobalMin) {
+      this.GlobalMin = CycleMin;
+      this.GlobalParams = CycleBestParams;
+    }
+
+    /* %% Scout phase (runABC.m) */
+    let maxBas = -Infinity;
+    for (let k = 0; k < half; k++) if (this.Bas[k] > maxBas) maxBas = this.Bas[k];
+    let ind = 0;
+    for (let k = 0; k < half; k++) if (this.Bas[k] === maxBas) ind = k;
+    if (this.Bas[ind] > this.ABCOpts.Limit) {
+      this.Bas[ind] = 0;
+      for (let d = 0; d < Dim; d++) {
+        this.Employed[ind][d] = (ub - lb) * (0.5 - rng()) * 2;
+      }
+    }
+    this.ObjEmp = this.evaluate(this.Employed);
+    this.FitEmp = calculateFitness(this.ObjEmp);
+
+    this.iteration++;
+    this.history.push(this.GlobalMin);
+  }
+
+  get out() { return { gbest: this.GlobalParams, gval: this.GlobalMin }; }
+}
+
+/* ============================================================
+   Page wiring
+   ============================================================ */
+const $ = id => document.getElementById(id);
+const convCanvas = $("conv"), fieldCanvas = $("field");
+let solver = null, abcSolver = null, compareABC = false, running = false, raf = null;
+
+// --- parse embedded CSV; duplicate names (fletcher, langermann, trid) get a D-suffixed key
+const CATALOG = [];
+FNC_PARAMS_CSV.trim().split(/\r?\n/).forEach(line => {
+  const p = line.split(/[;,\t]/).map(s => s.trim()).filter(s => s !== "");
+  if (p.length < 4) return;
+  CATALOG.push({ fnc: p[0], dim: parseFloat(p[1]), low: parseFloat(p[2]), up: parseFloat(p[3]) });
+});
+const nameCount = {};
+CATALOG.forEach(e => { nameCount[e.fnc] = (nameCount[e.fnc] || 0) + 1; });
+CATALOG.forEach(e => { e.key = nameCount[e.fnc] > 1 ? e.fnc + " (D=" + e.dim + ")" : e.fnc; });
+const BY_KEY = {};
+CATALOG.forEach(e => { BY_KEY[e.key] = e; });
+
+(function buildSelect() {
+  const sel = $("fn");
+  CATALOG.slice().sort((a, b) => a.key.localeCompare(b.key)).forEach(e => {
+    const o = document.createElement("option");
+    o.value = e.key;
+    o.textContent = e.key + "  —  D=" + e.dim + ", [" + e.low + ", " + e.up + "]";
+    if (!OBJECTIVES[e.fnc]) o.textContent += "  (not implemented)";
+    sel.appendChild(o);
+  });
+  $("b-count").textContent = CATALOG.length;
+  sel.value = "rosenbrock";
+})();
+
+
+// Renders each LaTeX line of an objective with KaTeX; falls back to raw TeX if KaTeX is unavailable.
+function renderFormula(meta) {
+  const box = $("f-formula"), noteBox = $("f-note");
+  box.innerHTML = ""; noteBox.innerHTML = "";
+  if (!meta) {
+    box.innerHTML = '<div class="plain">This objective is listed in fncParams.csv but has no JavaScript implementation.</div>';
+    return;
+  }
+  for (const line of meta.tex) {
+    const el = document.createElement("div");
+    el.className = "line";
+    if (window.katex) {
+      try { katex.render(line, el, { displayMode: true, throwOnError: false, strict: "ignore" }); }
+      catch (err) { el.className = "line plain"; el.textContent = line; }
+    } else {
+      el.className = "line plain"; el.textContent = line;
+    }
+    box.appendChild(el);
+  }
+  if (meta.note) {
+    const p = document.createElement("p");
+    p.className = "note";
+    p.innerHTML = "<b>MATLAB note.</b> ";
+    p.appendChild(document.createTextNode(meta.note));
+    noteBox.appendChild(p);
+  }
+}
+
+function applyCatalog(key) {
+  const e = BY_KEY[key];
+  if (!e) return;
+  $("D").value = e.dim;
+  $("lb").value = e.low;
+  $("ub").value = e.up;
+  const meta = OBJECTIVES[e.fnc];
+  $("f-name").innerHTML = e.fnc + "<small>" + e.fnc + ".m</small>";
+  renderFormula(meta);
+  $("f-meta").innerHTML =
+    '<span class="chip">dim <b>' + e.dim + '</b></span>' +
+    '<span class="chip">lower <b>' + e.low + '</b></span>' +
+    '<span class="chip">upper <b>' + e.up + '</b></span>';
+  reset();
+}
+
+$("fn").addEventListener("change", e => applyCatalog(e.target.value));
+
+function readSetup() {
+  const csRaw = Math.max(4, +$("abc-cs").value | 0);
+  const abcColonySize = (csRaw % 2 === 0) ? csRaw : csRaw + 1;
+  const abcLimit = Math.max(1, +$("abc-limit").value | 0);
+  const abcMaxCycles = Math.max(1, +$("abc-cyc").value | 0);
+  const abcErrGoal = +$("abc-err").value || 0;
+  return {
+    key: $("fn").value,
+    N: Math.max(4, +$("N").value | 0),
+    CS: Math.max(1, Math.round(+$("CS").value) || 2),
+    D: Math.max(2, +$("D").value | 0),
+    lb: +$("lb").value,
+    ub: +$("ub").value,
+    cyc: Math.max(1, +$("cyc").value | 0),
+    maxFE: Math.max(1, Math.floor(+$("maxfe").value) || 1000000),
+    spd: Math.max(1, +$("spd").value | 0),
+    seed: Math.max(0, Math.floor(+$("seed").value) || 0) >>> 0,
+    abcOpts: {
+      ColonySize: abcColonySize,
+      Limit: abcLimit,
+      MaxCycles: abcMaxCycles,
+      ErrGoal: abcErrGoal,
+      MaxFE: Math.max(1, Math.floor(+$("maxfe").value) || 1000000)
+    }
+  };
+}
+function updateABCInfo() {
+  const s = readSetup();
+  const half = s.abcOpts.ColonySize / 2;
+  $("abc-info").textContent =
+    "Employed: " + half + " | Onlooker: " + half + " | Limit: " + s.abcOpts.Limit;
+}
+function fmt(v) {
+  if (v === undefined || v === null || !isFinite(v)) return "—";
+  return v.toFixed(16);
+}
+
+// Sizes the backing store to the displayed size x devicePixelRatio so that
+// font sizes are not scaled down by the CSS stretch. Returns logical dimensions.
+// Optional `o` = { W, H, scale } renders to an explicit logical size and pixel scale (used for 300 dpi export).
+function prepCanvas(c, o) {
+  const dpr = (o && o.scale) ? o.scale : (window.devicePixelRatio || 1);
+  let W, H;
+  if (o && o.W && o.H) { W = o.W; H = o.H; }
+  else {
+    const r = c.getBoundingClientRect();
+    W = Math.max(320, Math.round(r.width)); H = Math.max(200, Math.round(r.height));
+  }
+  if (c.width !== Math.round(W * dpr) || c.height !== Math.round(H * dpr)) {
+    c.width = Math.round(W * dpr);
+    c.height = Math.round(H * dpr);
+  }
+  const ctx = c.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, W, H };
+}
+
+// Formats a log10 tick. Integer decades render as 10^k; intermediate values
+// render as proper scientific notation (integer exponent), never "1e1.4".
+function fmtLogTick(logVal) {
+  const r = Math.round(logVal);
+  if (Math.abs(logVal - r) < 1e-9) return "1e" + r;      // exact decade
+  const real = Math.pow(10, logVal);
+  if (!isFinite(real) || real === 0) return real === 0 ? "0" : "inf";
+  return real.toExponential(1).replace("e+", "e");        // e.g. "2.5e3"
+}
+// Builds up to `maxTicks` log10 gridline positions, preferring whole decades.
+function logTicks(lo, hi, maxTicks) {
+  const span = hi - lo;
+  if (span >= 2) {
+    const stepDec = Math.max(1, Math.ceil(span / maxTicks));
+    const out = [];
+    for (let k = Math.ceil(lo / stepDec) * stepDec; k <= hi + 1e-9; k += stepDec) out.push(k);
+    if (out.length >= 2) return out;
+  }
+  const out = [];
+  for (let g = 0; g <= maxTicks; g++) out.push(lo + span * g / maxTicks);
+  return out;
+}
+
+function paintConvergence(cv, o) {
+  const { ctx, W, H } = prepCanvas(cv || convCanvas, o);
+  const padL = 78, padB = 44, padT = 16, padR = 18;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, W, H);
+  const hasEBee = solver && solver.history.length >= 2;
+  const hasABC = compareABC && abcSolver && abcSolver.history.length >= 2;
+  if (!hasEBee && !hasABC) return;
+
+  const h = hasEBee ? solver.history : [];
+  const hAbc = hasABC ? abcSolver.history : null;
+
+  const activeSolver = solver || abcSolver;
+  if (activeSolver.scaleMode === null || activeSolver.scaleMode === undefined) {
+    const posE = !hasEBee || h.every(v => v > 0);
+    const posA = !hAbc || hAbc.every(v => v > 0);
+    activeSolver.scaleMode = (posE && posA) ? "log" : "linear";
+  }
+  if (activeSolver.scaleMode === "log") {
+    if ((hasEBee && h[h.length - 1] <= 0) || (hAbc && hAbc[hAbc.length - 1] <= 0)) {
+      activeSolver.scaleMode = "linear";
+    }
+  }
+  const isLog = activeSolver.scaleMode === "log";
+  const t = hasEBee ? (isLog ? h.map(v => Math.log10(Math.max(v, 1e-300))) : h.slice()) : [];
+  const tAbc = hAbc ? (isLog ? hAbc.map(v => Math.log10(Math.max(v, 1e-300))) : hAbc.slice()) : null;
+
+  let lo = Infinity, hi = -Infinity;
+  for (const v of t) { if (v < lo) lo = v; if (v > hi) hi = v; }
+  if (tAbc) {
+    for (const v of tAbc) { if (v < lo) lo = v; if (v > hi) hi = v; }
+  }
+  if (!isFinite(lo) || !isFinite(hi)) return;
+  if (hi - lo < 1e-12) hi = lo + 1;
+
+  const maxLen = Math.max(t.length, tAbc ? tAbc.length : 0);
+  const gx = i => padL + (W - padL - padR) * (i / Math.max(1, maxLen - 1));
+  const gy = v => padT + (H - padT - padB) * (1 - (v - lo) / (hi - lo));
+
+  // y grid + tick labels, right-aligned against the axis
+  ctx.font = "500 12px 'IBM Plex Mono', monospace";
+  ctx.textBaseline = "middle";
+  const yticks = isLog ? logTicks(lo, hi, 5)
+                       : Array.from({ length: 6 }, (_, g) => lo + (hi - lo) * g / 5);
+  for (const val of yticks) {
+    const y = gy(val);
+    ctx.strokeStyle = "#EEECE6";
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+    ctx.strokeStyle = "#CFCBC2";
+    ctx.beginPath(); ctx.moveTo(padL - 5, y); ctx.lineTo(padL, y); ctx.stroke();
+    const lab = isLog ? fmtLogTick(val) : val.toPrecision(3);
+    ctx.fillStyle = "#5F5C68";
+    ctx.fillText(lab, padL - 9 - ctx.measureText(lab).width, y);
+  }
+  ctx.strokeStyle = "#CFCBC2"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, H - padB); ctx.lineTo(W - padR, H - padB); ctx.stroke();
+
+  // eBee filled area + curve
+  if (t.length >= 2) {
+    const grad = ctx.createLinearGradient(0, padT, 0, H - padB);
+    grad.addColorStop(0, "rgba(127,163,196,0.22)");
+    grad.addColorStop(1, "rgba(127,163,196,0)");
+    ctx.beginPath();
+    ctx.moveTo(gx(0), H - padB);
+    for (let i = 0; i < t.length; i++) ctx.lineTo(gx(i), gy(t[i]));
+    ctx.lineTo(gx(t.length - 1), H - padB);
+    ctx.closePath(); ctx.fillStyle = grad; ctx.fill();
+
+    ctx.strokeStyle = "#7FA3C4"; ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    for (let i = 0; i < t.length; i++) { const x = gx(i), y = gy(t[i]); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+    ctx.stroke();
+  }
+
+  // Bağımsız ABC_PureCode curve (Kırmızı)
+  if (tAbc && tAbc.length >= 2) {
+    ctx.strokeStyle = "#E02424";
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    for (let i = 0; i < tAbc.length; i++) {
+      const x = gx(i), y = gy(tAbc[i]);
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  // Legend in top-right corner
+  ctx.font = "600 11.5px 'IBM Plex Sans', sans-serif";
+  ctx.textBaseline = "middle";
+  const legW = tAbc ? 165 : 75;
+  const legX = W - padR - legW, legY = padT + 14;
+  ctx.fillStyle = "rgba(255,255,255,0.88)";
+  ctx.strokeStyle = "#E3E0D9";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(legX - 8, legY - 11, legW, 22, 6);
+  ctx.fill(); ctx.stroke();
+
+  ctx.strokeStyle = "#7FA3C4"; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.moveTo(legX, legY); ctx.lineTo(legX + 16, legY); ctx.stroke();
+  ctx.fillStyle = "#2E2C36";
+  ctx.fillText("eBee", legX + 22, legY);
+
+  if (tAbc) {
+    const abcX = legX + 68;
+    ctx.strokeStyle = "#E02424"; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(abcX, legY); ctx.lineTo(abcX + 16, legY); ctx.stroke();
+    ctx.fillStyle = "#A61C1C";
+    ctx.fillText("ABC", abcX + 22, legY);
+  }
+
+  // x tick labels
+  ctx.textBaseline = "top";
+  ctx.fillStyle = "#5F5C68";
+  ctx.font = "500 12px 'IBM Plex Mono', monospace";
+  const last = Math.max(solver ? solver.iteration : 0, abcSolver ? abcSolver.iteration : 0);
+  for (let g = 0; g <= 4; g++) {
+    const frac = g / 4;
+    const x = padL + (W - padL - padR) * frac;
+    const lab = String(Math.round(frac * last));
+    let tx = x - ctx.measureText(lab).width / 2;
+    tx = Math.max(padL, Math.min(W - padR - ctx.measureText(lab).width, tx));
+    ctx.strokeStyle = "#CFCBC2";
+    ctx.beginPath(); ctx.moveTo(x, H - padB); ctx.lineTo(x, H - padB + 5); ctx.stroke();
+    ctx.fillText(lab, tx, H - padB + 9);
+  }
+
+  // axis titles
+  ctx.font = "600 11px 'IBM Plex Sans', sans-serif";
+  ctx.fillStyle = "#8A8794";
+  const xt = "CYCLE";
+  ctx.fillText(xt, (padL + W - padR) / 2 - ctx.measureText(xt).width / 2, H - 15);
+  ctx.save();
+  ctx.translate(16, (padT + H - padB) / 2);
+  ctx.rotate(-PI / 2);
+  const yt = isLog ? "BEST f(x)  (log scale)" : "BEST f(x)";
+  ctx.fillText(yt, -ctx.measureText(yt).width / 2, 0);
+  ctx.restore();
+  ctx.textBaseline = "alphabetic";
+}
+
+function paintField(cv, o) {
+  const { ctx, W, H } = prepCanvas(cv || fieldCanvas, o);
+  const pad = 30;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, W, H);
+  if (!solver) return;
+  const lb = solver.lb, ub = solver.ub;
+  const sx = v => pad + (W - 2 * pad) * (v - lb) / (ub - lb);
+  const sy = v => H - pad - (H - 2 * pad) * (v - lb) / (ub - lb);
+
+  ctx.strokeStyle = "#F0EEE8"; ctx.lineWidth = 1;
+  for (let g = 0; g <= 8; g++) {
+    const x = pad + (W - 2 * pad) * g / 8, y = pad + (H - 2 * pad) * g / 8;
+    ctx.beginPath(); ctx.moveTo(x, pad); ctx.lineTo(x, H - pad); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(W - pad, y); ctx.stroke();
+  }
+  const hex = (x, y, r) => {
+    ctx.beginPath();
+    for (let k = 0; k < 6; k++) {
+      const a = PI / 6 + k * PI / 3;
+      const px = x + r * Math.cos(a), py = y + r * Math.sin(a);
+      k ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+    }
+    ctx.closePath();
+  };
+  ctx.fillStyle = "rgba(126,158,135,0.6)";
+  for (const r of solver.Meadow) { hex(sx(r[0]), sy(r[1]), 4); ctx.fill(); }
+  const bx = sx(solver.gBest[0]), by = sy(solver.gBest[1]);
+    ctx.fillStyle = "#C58F89"; hex(bx, by, 8); ctx.fill();
+  ctx.strokeStyle = "#C58F89"; ctx.lineWidth = 1.5; hex(bx, by, 15); ctx.stroke();
+
+  ctx.fillStyle = "#5F5C68"; ctx.font = "italic 400 14px 'KaTeX_Math', 'Times New Roman', serif";
+  ctx.fillText("x\u2081", W / 2 - 6, H - 9);
+  ctx.fillText("x\u2082", 8, 20);
+}
+
+function paintReadout() {
+  if (!solver) return;
+  $("o-iter").textContent = solver.iteration;
+  $("o-val").textContent = fmt(solver.gBestVal);
+  $("o-fe").textContent = solver.evals.toLocaleString("en-US");
+  $("o-pop").textContent = solver.CSize * solver.N + " × " + solver.D;
+  const abcValEl = $("o-val-abc"), abcFeEl = $("o-fe-abc"), abcPopEl = $("o-pop-abc");
+  if (compareABC && abcSolver && abcSolver.history.length > 0) {
+    abcValEl.style.display = "block";
+    abcValEl.textContent = "ABC: " + fmt(abcSolver.GlobalMin);
+    abcFeEl.style.display = "block";
+    abcFeEl.textContent = "ABC: " + abcSolver.evals.toLocaleString("en-US");
+    abcPopEl.style.display = "block";
+    abcPopEl.textContent = "ABC: " + abcSolver.ABCOpts.ColonySize + " (Emp " + abcSolver.N + ") × " + abcSolver.D + " | L=" + abcSolver.ABCOpts.Limit;
+  } else {
+    abcValEl.style.display = "none";
+    abcFeEl.style.display = "none";
+    abcPopEl.style.display = "none";
+  }
+  $("o-vec").textContent = solver.gBest.map((v, i) =>
+    "x" + String(i + 1).padStart(2, "0") + " = " + v.toFixed(10)).join("\n");
+  $("t-emp").classList.toggle("on", solver.phase.emp);
+  $("t-onl").classList.toggle("on", solver.phase.onl);
+  $("t-sct").classList.toggle("on", solver.phase.sct);
+}
+
+function initABCSolver() {
+  clearToast("ABC");
+  updateABCInfo();
+  const s = readSetup();
+  const entry = BY_KEY[s.key];
+  const fncName = entry ? entry.fnc : s.key;
+  if (!OBJECTIVES[fncName]) return;
+  // ABC_PureCode yalnızca seed numarasını (s.seed) ve ABCOpts parametrelerini alır; eBee çözümlerinden yararlanmaz
+  abcSolver = new ABC_PureCode(fncName, [], s.N, s.D, s.lb, s.ub, s.cyc, s.abcOpts, s.seed);
+}
+
+function syncABCToSolver() {
+  if (!compareABC || !solver) return;
+  if (!abcSolver) initABCSolver();
+  // Catch ABC up to the eBee cycle count (never beyond its own FE budget)
+  while (abcSolver.iteration < solver.iteration && !abcSolver.done) {
+    abcSolver.step();
+  }
+}
+
+function allDone() {
+  return solver.done && (!compareABC || !abcSolver || abcSolver.done);
+}
+
+/* ---------------- Stop-condition messages (dismissible) ---------------- */
+const toastEls = {};
+function clearToast(key) {
+  const el = toastEls[key];
+  if (el && el.parentNode) el.parentNode.removeChild(el);
+  delete toastEls[key];
+}
+function clearToasts() { Object.keys(toastEls).forEach(clearToast); }
+function showToast(key, cls, title, body) {
+  clearToast(key);
+  const el = document.createElement("div");
+  el.className = "toast " + cls;
+  const box = document.createElement("div");
+  const t = document.createElement("div"); t.className = "tt"; t.textContent = title;
+  const b = document.createElement("div"); b.className = "tb"; b.textContent = body;
+  box.appendChild(t); box.appendChild(b);
+  const x = document.createElement("button");
+  x.className = "tx"; x.type = "button"; x.textContent = "\u00D7";
+  x.setAttribute("aria-label", "Dismiss message");
+  x.addEventListener("click", () => clearToast(key));
+  el.appendChild(box); el.appendChild(x);
+  $("toasts").appendChild(el);
+  toastEls[key] = el;
+}
+function showStopToast(label, s, bestVal) {
+  const fe = s.evals.toLocaleString("en-US"), maxfe = s.MaxFE.toLocaleString("en-US");
+  const reason = s.evals >= s.MaxFE
+    ? "Stopping condition: max function evaluations reached (" + fe + " \u2265 " + maxfe + ")."
+    : "Stopping condition: max cycles reached (" + s.iteration.toLocaleString("en-US") + " \u2265 " + s.MaxCycle.toLocaleString("en-US") + ").";
+  showToast(label, label === "eBee" ? "ebee" : "abc", label + " stopped",
+    reason + "\nCycles: " + s.iteration.toLocaleString("en-US") + " | Evaluations: " + fe + "\nBest value: " + fmt(bestVal));
+}
+function checkStops() {
+  if (solver && solver.done && !solver.stopNotified) {
+    solver.stopNotified = true;
+    showStopToast("eBee", solver, solver.gBestVal);
+  }
+  if (compareABC && abcSolver && abcSolver.done && !abcSolver.stopNotified) {
+    abcSolver.stopNotified = true;
+    showStopToast("ABC", abcSolver, abcSolver.GlobalMin);
+  }
+}
+
+/* ---------------- PNG export at 300 dpi ---------------- */
+const EXPORT_DPI = 300;
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(u8) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < u8.length; i++) c = CRC_TABLE[(c ^ u8[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+// Inserts a pHYs chunk (pixels per metre) right after IHDR so viewers/printers read the file as `dpi`.
+function setPngDpi(png, dpi) {
+  const ppm = Math.round(dpi / 0.0254);
+  const chunk = new Uint8Array(21);
+  const dv = new DataView(chunk.buffer);
+  dv.setUint32(0, 9);
+  chunk.set([0x70, 0x48, 0x59, 0x73], 4);          // "pHYs"
+  dv.setUint32(8, ppm); dv.setUint32(12, ppm);
+  chunk[16] = 1;                                    // unit: metre
+  dv.setUint32(17, crc32(chunk.subarray(4, 17)));
+  const at = 33;                                    // 8-byte signature + 25-byte IHDR chunk
+  const out = new Uint8Array(png.length + chunk.length);
+  out.set(png.subarray(0, at), 0);
+  out.set(chunk, at);
+  out.set(png.subarray(at), at + chunk.length);
+  return out;
+}
+async function savePlotPNG(kind) {
+  const isConv = kind === "conv";
+  const src = isConv ? convCanvas : fieldCanvas;
+  const hasData = isConv ? (solver && solver.history.length >= 2) : !!solver;
+  if (!hasData) {
+    showToast("export", "info", "Nothing to save yet", "Run a search first, then save the plot.");
+    return;
+  }
+  const r = src.getBoundingClientRect();
+  const W = Math.max(320, Math.round(r.width)), H = Math.max(200, Math.round(r.height));
+  const cv = document.createElement("canvas");
+  (isConv ? paintConvergence : paintField)(cv, { W, H, scale: EXPORT_DPI / 96 });   // same physical size as on screen, at 300 dpi
+  const blob = await new Promise(res => cv.toBlob(res, "image/png"));
+  if (!blob) { showToast("export", "info", "Export failed", "The browser could not create the PNG."); return; }
+  const png = setPngDpi(new Uint8Array(await blob.arrayBuffer()), EXPORT_DPI);
+  const name = ($("fn").value || "plot").replace(/[^A-Za-z0-9_.-]+/g, "_") +
+    "_" + (isConv ? "convergence" : "meadow") + "_seed" + $("seed").value + "_300dpi.png";
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([png], { type: "image/png" }));
+  a.download = name;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+function loop() {
+  if (!running) return;
+  const spd = Math.max(1, +$("spd").value | 0);
+  // Each algorithm runs independently until its own evaluation count reaches Max FE
+  for (let i = 0; i < spd; i++) {
+    if (!solver.done) solver.step();
+    if (compareABC && abcSolver && !abcSolver.done) abcSolver.step();
+    if (allDone()) break;
+  }
+  paintReadout(); paintConvergence(); paintField();
+  checkStops();
+  if (allDone()) { pause(); return; }
+  raf = requestAnimationFrame(loop);
+}
+
+function start() {
+  updateABCInfo();
+  const s = readSetup();
+  if (s.ub <= s.lb) { $("o-vec").textContent = "Upper bound must be greater than lower bound."; return; }
+  const entry = BY_KEY[s.key];
+  const fncName = entry ? entry.fnc : s.key;
+  if (!OBJECTIVES[fncName]) { $("o-vec").textContent = "No JavaScript implementation for " + fncName + ".m"; return; }
+  if (!solver) {
+    solver = new EBee(fncName, [], s.N, s.D, s.lb, s.ub, s.cyc, s.CS, s.seed, s.maxFE);
+    if (compareABC) {
+      initABCSolver();
+    }
+  }
+  running = true;
+  $("run").disabled = true; $("stop").disabled = false;
+  loop();
+}
+function pause() {
+  running = false;
+  if (raf) cancelAnimationFrame(raf);
+  $("run").disabled = false; $("stop").disabled = true;
+  $("run").textContent = solver && solver.iteration ? "Resume search" : "Start search";
+}
+function reset() {
+  pause();
+  clearToasts();
+  updateABCInfo();
+  solver = null;
+  abcSolver = null;
+  $("run").textContent = "Start search";
+  $("o-iter").textContent = "0"; $("o-val").textContent = "—";
+  $("o-val-abc").style.display = "none"; $("o-val-abc").textContent = "—";
+  $("o-fe").textContent = "0";
+  $("o-fe-abc").style.display = "none"; $("o-fe-abc").textContent = "0";
+  $("o-pop").textContent = "—";
+  $("o-pop-abc").style.display = "none"; $("o-pop-abc").textContent = "—";
+  $("o-vec").textContent = "Nothing found yet. Start a search.";
+  [convCanvas, fieldCanvas].forEach(c => {
+    const { ctx, W, H } = prepCanvas(c);
+    ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, W, H);
+  });
+  ["t-emp", "t-onl", "t-sct"].forEach(id => $(id).classList.remove("on"));
+}
+
+function toggleABCCompare() {
+  compareABC = !compareABC;
+  const btn = $("run-abc");
+  if (compareABC) {
+    btn.classList.add("active");
+    btn.textContent = "✓ ABC Active (Red)";
+    if (!solver) {
+      start();
+      return;
+    }
+    solver.scaleMode = null;
+    syncABCToSolver();
+    if (!running && solver.done && abcSolver && !abcSolver.done) { start(); return; }
+    paintReadout(); checkStops();
+  } else {
+    clearToast("ABC");
+    btn.classList.remove("active");
+    btn.textContent = "+ ABC Compare (Red)";
+    if (solver) solver.scaleMode = null;
+  }
+  paintReadout();
+  paintConvergence();
+}
+
+function onABCParamChange() {
+  updateABCInfo();
+  if (!solver) return;
+  // Eğer çalışma devam ediyorsa veya duraklatılmışsa, yeni ABC parametreleriyle aynı seed'den ABC'yi yeniden hesapla ve grafiği güncelle
+  if (compareABC) {
+    initABCSolver();
+    syncABCToSolver();
+    solver.scaleMode = null;
+    paintReadout();
+    paintConvergence();
+    checkStops();
+  }
+}
+
+$("maxfe").addEventListener("change", () => {
+  const v = Math.max(1, Math.floor(+$("maxfe").value) || 1000000);
+  $("maxfe").value = v;
+  if (solver) { solver.MaxFE = v; if (!solver.done) { solver.stopNotified = false; clearToast("eBee"); } }
+  if (abcSolver) { abcSolver.MaxFE = v; if (!abcSolver.done) { abcSolver.stopNotified = false; clearToast("ABC"); } }
+  if (solver && !running) pause();   // refresh button state only; a running search keeps going
+});
+$("save-conv").addEventListener("click", () => savePlotPNG("conv"));
+$("save-field").addEventListener("click", () => savePlotPNG("field"));
+$("run").addEventListener("click", start);
+$("stop").addEventListener("click", pause);
+$("reset").addEventListener("click", reset);
+$("run-abc").addEventListener("click", toggleABCCompare);
+["N", "CS", "D", "lb", "ub", "seed"].forEach(id => $(id).addEventListener("change", reset));
+$("cyc").addEventListener("change", () => {
+  $("abc-cyc").value = $("cyc").value;
+  reset();
+});
+["abc-cs", "abc-limit", "abc-cyc", "abc-err"].forEach(id => {
+  $(id).addEventListener("change", onABCParamChange);
+  $(id).addEventListener("input", updateABCInfo);
+});
+$("newseed").addEventListener("click", () => {
+  $("seed").value = Math.floor(Math.random() * 4294967296);
+  reset();
+});
+
+let resizeTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { paintConvergence(); paintField(); }, 120);
+});
+
+applyCatalog($("fn").value);
+function renderTitles() {
+  if (!window.katex) return;
+  document.querySelectorAll("[data-tex]").forEach(el =>
+    katex.render(el.dataset.tex, el, { throwOnError: false, strict: "ignore" }));
+}
+renderTitles();
+window.addEventListener("load", () => { renderTitles(); renderFormula(OBJECTIVES[(BY_KEY[$("fn").value] || {}).fnc]); });
+</script>
+</body>
+</html>
